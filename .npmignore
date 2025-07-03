@@ -1,0 +1,36 @@
+# Source files
+src/
+tests/
+coverage/
+
+# Development files
+.eslintrc.js
+.prettierrc
+jest.config.js
+tsconfig.json
+.gitignore
+
+# Development dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test and coverage
+*.test.ts
+*.spec.ts
+coverage/
+.nyc_output
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation (keep README.md)
+# docs/
