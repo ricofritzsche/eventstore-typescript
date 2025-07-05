@@ -150,7 +150,7 @@ export async function runExample(): Promise<void> {
     
     console.log('1. Basic Event Storage and Retrieval');
     const uniqueName = `Asset-${Date.now()}`;
-    await executeAssetRegistration(store, 'asset-12345', uniqueName);
+    await executeAssetRegistration(store, 'asset-123', uniqueName);
     
     const filter = EventStore.createFilter(['AssetRegistered']);
     const storedEvents = await store.queryEvents<AssetRegistered>(filter);
