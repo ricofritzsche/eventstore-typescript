@@ -3,14 +3,21 @@ import { IEventStore, EventFilter, HasEventType, EventRecord, EventStoreOptions 
 
 export class PostgresEventStore implements IEventStore {
   private pool: Pool;
+  private dbName: string;
+  private adminPool: Pool
 
   constructor(options: EventStoreOptions = {}) {
     const connectionString = options.connectionString || 
       process.env.DATABASE_URL || 
       'postgres://postgres:postgres@localhost:5432/eventstore';
+
+    this.dbName = this.getDatabaseNameFromConnectionString(connectionString) || 'eventstore';
     
     console.log(connectionString)
     this.pool = new Pool({ connectionString });
+
+    const adminConnectionString = this.changeDatabaseInConnectionString(connectionString, 'postgres');
+    this.adminPool = new Pool({ connectionString: adminConnectionString });
   }
 
   async queryEvents<T extends HasEventType>(filter: EventFilter): Promise<T[]> {
@@ -125,6 +132,20 @@ export class PostgresEventStore implements IEventStore {
   }
 
   async createTables(): Promise<void> {
+    const adminClient = await this.adminPool.connect();
+    try {
+      await adminClient.query(`CREATE DATABASE ${this.dbName}`);
+      console.log(`Database created: ${this.dbName}`);
+    } catch (err: any) {
+      if (err.code === '42P04') { // already exists
+        console.log(`Database already exists: ${this.dbName}`);
+      } else {
+        throw err;
+      }
+    } finally {
+      adminClient.release();
+    }
+
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -152,4 +173,22 @@ export class PostgresEventStore implements IEventStore {
       client.release();
     }
   }
+
+  private changeDatabaseInConnectionString(connStr: string, newDbName: string): string {
+    const url = new URL(connStr);
+    url.pathname = `/${newDbName}`;
+    return url.toString();
+  }
+
+  private getDatabaseNameFromConnectionString(connStr: string): string | null {
+    try {
+      const url = new URL(connStr);
+      const dbName = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
+      return dbName || null;
+    } catch (err) {
+      console.error('Invalid connection string:', err);
+      return null;
+    }
+  }
+  
 }
