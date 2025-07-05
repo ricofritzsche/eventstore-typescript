@@ -9,6 +9,7 @@ export class PostgresEventStore implements IEventStore {
       process.env.DATABASE_URL || 
       'postgres://postgres:postgres@localhost:5432/eventstore';
     
+    console.log(connectionString)
     this.pool = new Pool({ connectionString });
   }
 
