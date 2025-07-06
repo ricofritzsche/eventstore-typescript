@@ -1,4 +1,6 @@
 import { EventStore, EventFilter, HasEventType } from './index';
+import dotenv from 'dotenv';
+
 
 interface AssetRegistered extends HasEventType {
   assetId: string;
@@ -137,16 +139,18 @@ async function executeDeviceBinding(
 }
 
 export async function runExample(): Promise<void> {
-  const store = new EventStore({
-    connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/eventstore'
-  });
+  dotenv.config();
+
+  const store = new EventStore(
+    { connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/eventstore' }
+  );
 
   try {
     await store.migrate();
     
     console.log('1. Basic Event Storage and Retrieval');
     const uniqueName = `Asset-${Date.now()}`;
-    await executeAssetRegistration(store, 'asset-12345', uniqueName);
+    await executeAssetRegistration(store, 'asset-123', uniqueName);
     
     const filter = EventStore.createFilter(['AssetRegistered']);
     const storedEvents = await store.queryEvents<AssetRegistered>(filter);

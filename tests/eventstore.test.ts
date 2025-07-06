@@ -1,4 +1,7 @@
 import { EventStore, EventFilter, HasEventType } from '../src';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 class TestEvent implements HasEventType {
   constructor(
@@ -20,9 +23,9 @@ describe('EventStore', () => {
   let eventStore: EventStore;
 
   beforeEach(() => {
-    eventStore = new EventStore({
-      connectionString: 'postgres://postgres:postgres@localhost:5432/eventstore_test'
-    });
+    eventStore= new EventStore(
+      { connectionString: process.env.DATABASE_TEST_URL || 'postgres://postgres:postgres@localhost:5432/eventstore_test' }
+    );
   });
 
   afterEach(async () => {
