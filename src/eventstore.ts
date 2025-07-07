@@ -9,8 +9,8 @@ export class EventStore {
     this.store = new PostgresEventStore(options);
   }
 
-  async queryEvents<T extends HasEventType>(filter: EventFilter): Promise<T[]> {
-    return this.store.queryEvents<T>(filter);
+  async query<T extends HasEventType>(filter: EventFilter): Promise<T[]> {
+    return this.store.query<T>(filter);
   }
 
   async append<T extends HasEventType>(filter: EventFilter, events: T[]): Promise<void> {

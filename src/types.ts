@@ -17,7 +17,7 @@ export interface EventFilter {
 }
 
 export interface IEventStore {
-  queryEvents<T extends HasEventType>(filter: EventFilter): Promise<T[]>;
+  query<T extends HasEventType>(filter: EventFilter): Promise<T[]>;
   append<T extends HasEventType>(filter: EventFilter, events: T[]): Promise<void>;
 }
 

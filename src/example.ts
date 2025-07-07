@@ -103,7 +103,7 @@ async function executeAssetRegistration(
     .createFilter(['AssetRegistered'])
     .withPayloadPredicate('name', name);
   
-  const events = await store.queryEvents<AssetRegistered>(filter);
+  const events = await store.query<AssetRegistered>(filter);
   const state = foldAssetState(events);
   const newEvents = decideAssetRegistration(state, assetId, name);
   
@@ -124,8 +124,8 @@ async function executeDeviceBinding(
     .withPayloadPredicate('assetId', assetId);
   
   const [assetEvents, bindingEvents] = await Promise.all([
-    store.queryEvents<AssetRegistered>(assetFilter),
-    store.queryEvents<DeviceBound>(bindingFilter)
+    store.query<AssetRegistered>(assetFilter),
+    store.query<DeviceBound>(bindingFilter)
   ]);
   
   const state = foldBindingState(assetEvents, bindingEvents, assetId);
@@ -153,7 +153,7 @@ export async function runExample(): Promise<void> {
     await executeAssetRegistration(store, 'asset-123', uniqueName);
     
     const filter = EventStore.createFilter(['AssetRegistered']);
-    const storedEvents = await store.queryEvents<AssetRegistered>(filter);
+    const storedEvents = await store.query<AssetRegistered>(filter);
     console.log('Stored events:', storedEvents.length);
 
     console.log('2. Optimistic Locking Pattern');
@@ -168,7 +168,7 @@ export async function runExample(): Promise<void> {
     await executeDeviceBinding(store, 'device-789', 'asset-123');
     
     const bindingFilter = EventStore.createFilter(['DeviceBound']);
-    const bindingEvents = await store.queryEvents<DeviceBound>(bindingFilter);
+    const bindingEvents = await store.query<DeviceBound>(bindingFilter);
     console.log('Binding events:', bindingEvents.length);
 
   } finally {

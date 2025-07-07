@@ -20,7 +20,7 @@ export class PostgresEventStore implements IEventStore {
     this.adminPool = new Pool({ connectionString: adminConnectionString });
   }
 
-  async queryEvents<T extends HasEventType>(filter: EventFilter): Promise<T[]> {
+  async query<T extends HasEventType>(filter: EventFilter): Promise<T[]> {
     const client = await this.pool.connect();
     try {
       let query = 'SELECT * FROM events WHERE event_type = ANY($1)';
