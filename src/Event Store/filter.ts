@@ -5,6 +5,8 @@ export class EventFilter implements IEventFilter {
   public readonly payloadPredicates?: Record<string, unknown>;
   public readonly payloadPredicateOptions?: Record<string, unknown>[];
 
+
+  // Methods for initial construction of a filter
   protected constructor(eventTypes: string[], payloadPredicates?: Record<string, unknown>, payloadPredicateOptions?: Record<string, unknown>[]) {
     this.eventTypes = eventTypes;
     if (payloadPredicates !== undefined) {
@@ -23,6 +25,8 @@ export class EventFilter implements IEventFilter {
     return new EventFilter(eventTypes, undefined, payloadPredicateOptions);
   }
 
+
+  // Fluent interface methods to extend a filter
   withPayloadPredicate(key: string, value: unknown): EventFilter {
     const predicates = { ...this.payloadPredicates, [key]: value };
     return new EventFilter(this.eventTypes, predicates, this.payloadPredicateOptions);
