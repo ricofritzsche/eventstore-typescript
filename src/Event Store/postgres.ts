@@ -26,33 +26,15 @@ export class PostgresEventStore implements IEventStore {
   async query<T extends IHasEventType>(filter: IEventFilter): Promise<IQueryResult<T>> {
     const client = await this.pool.connect();
     try {
-      // First get the max sequence number for the context
-      const contextQuery = this.buildContextQuery(filter);
-      const contextResult = await client.query(contextQuery.sql, contextQuery.params);
-      const maxSequenceNumber = parseInt(contextResult.rows[0]?.max_seq || '0', 10);
-
-      // Then get the actual events
-      let query = 'SELECT * FROM events WHERE event_type = ANY($1)';
+      // Get the actual events
       const params: unknown[] = [filter.eventTypes];
 
-      if (filter.payloadPredicates && Object.keys(filter.payloadPredicates).length > 0) {
-        query += ' AND payload @> $2';
-        params.push(JSON.stringify(filter.payloadPredicates));
-      }
-
-      if (filter.payloadPredicateOptions && filter.payloadPredicateOptions.length > 0) {
-        const orConditions = filter.payloadPredicateOptions.map((_, index) => {
-          const paramIndex = params.length + 1;
-          params.push(JSON.stringify(filter.payloadPredicateOptions![index]));
-          return `payload @> $${paramIndex}`;
-        });
-        query += ` AND (${orConditions.join(' OR ')})`;
-      }
-
-      query += ' ORDER BY sequence_number ASC';
-
+      let query = this.buildContextQuery(filter, params);
       const result = await client.query(query, params);
-      
+
+      const lastRow = result.rows[result.rows.length - 1];
+      const maxSequenceNumber = lastRow ? lastRow.sequence_number : 0;
+
       const events = result.rows.map(row => this.deserializeEvent<T>(row));
       
       return { events, maxSequenceNumber };
@@ -60,6 +42,7 @@ export class PostgresEventStore implements IEventStore {
       client.release();
     }
   }
+
 
   async append<T extends IHasEventType>(filter: IEventFilter, events: T[], expectedMaxSequence: number): Promise<void> {
     if (events.length === 0) return;
@@ -79,7 +62,7 @@ export class PostgresEventStore implements IEventStore {
         }));
       }
 
-      const contextQueryForCte = this.buildContextQuery(filter);
+      const contextQueryForCte = this.buildContextVersionQuery(filter);
       const cteQuery = this.buildCteInsertQuery(filter, expectedMaxSequence);
       
       const params = [
@@ -102,7 +85,35 @@ export class PostgresEventStore implements IEventStore {
     }
   }
 
-  private buildContextQuery(filter: IEventFilter): { sql: string; params: unknown[] } {
+  
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
+
+
+  private buildContextQuery(filter: IEventFilter, params: unknown[]) {
+    let query = 'SELECT * FROM events WHERE event_type = ANY($1)';
+
+    if (filter.payloadPredicates && Object.keys(filter.payloadPredicates).length > 0) {
+      query += ' AND payload @> $2';
+      params.push(JSON.stringify(filter.payloadPredicates));
+    }
+
+    if (filter.payloadPredicateOptions && filter.payloadPredicateOptions.length > 0) {
+      const orConditions = filter.payloadPredicateOptions.map((_, index) => {
+        const paramIndex = params.length + 1;
+        params.push(JSON.stringify(filter.payloadPredicateOptions![index]));
+        return `payload @> $${paramIndex}`;
+      });
+      query += ` AND (${orConditions.join(' OR ')})`;
+    }
+
+    query += ' ORDER BY sequence_number ASC';
+    return query;
+  }
+
+
+  private buildContextVersionQuery(filter: IEventFilter): { sql: string; params: unknown[] } {
     let sql = 'SELECT MAX(sequence_number) AS max_seq FROM events WHERE event_type = ANY($1)';
     const params: unknown[] = [filter.eventTypes];
 
@@ -124,7 +135,7 @@ export class PostgresEventStore implements IEventStore {
   }
 
   private buildCteInsertQuery(filter: IEventFilter, expectedMaxSeq: number): string {
-    const contextQuery = this.buildContextQuery(filter);
+    const contextQuery = this.buildContextVersionQuery(filter);
     const contextCondition = contextQuery.sql.replace('SELECT MAX(sequence_number) AS max_seq FROM events WHERE ', '');
     
     // Calculate parameter positions for insert values
@@ -156,11 +167,10 @@ export class PostgresEventStore implements IEventStore {
     } as T;
   }
 
-  async close(): Promise<void> {
-    await this.pool.end();
-  }
-
   
+
+
+
   async initializeDatabase(): Promise<void> {
     await this.createDatabase();
     await this.createTableAndIndexes();
