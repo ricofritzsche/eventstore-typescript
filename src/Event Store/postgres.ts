@@ -129,8 +129,7 @@ export class PostgresEventStore implements IEventStore {
     return query;
   }
 
-
-  // The SQL query to return the current max sequence number for the context
+  // Only the SQL conditions to return the current max sequence number for the context
   private static buildContextVersionQueryConditions(filter: IEventFilter): { sql: string; params: unknown[] } {
     let sql = 'event_type = ANY($1)';
 
@@ -158,7 +157,7 @@ export class PostgresEventStore implements IEventStore {
     const contextVersionQueryConditions = PostgresEventStore.buildContextVersionQueryConditions(filter);
     return buildCteInsertQuerySql();
 
-    
+
     function buildCteInsertQuerySql() {
       const contextParamCount = contextVersionQueryConditions.params.length;
       const eventTypesParam = contextParamCount + 1;
