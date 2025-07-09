@@ -25,7 +25,6 @@ export interface IQueryResult<T extends IHasEventType> {
 export interface IEventStore {
   query<T extends IHasEventType>(filter: IEventFilter): Promise<IQueryResult<T>>;
   append<T extends IHasEventType>(filter: IEventFilter, events: T[], expectedMaxSequence: number): Promise<void>;
-  close(): Promise<void>;
 }
 
 export interface IEventStoreOptions {
