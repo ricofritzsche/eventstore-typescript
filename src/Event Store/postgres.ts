@@ -1,12 +1,17 @@
 import { Pool } from 'pg';
-import { IEventStore, IEventFilter, IHasEventType, IEventRecord, IEventStoreOptions } from './types';
-import { EventFilter as EventFilterClass } from './filter';
+import { IEventStore, IEventFilter, IHasEventType, IEventRecord } from './types';
+
+
+export interface IPostgresEventStoreOptions {
+  connectionString?: string;
+}
+
 
 export class PostgresEventStore implements IEventStore {
   private pool: Pool;
   private readonly dbName: string;
 
-  constructor(options: IEventStoreOptions = {}) {
+  constructor(options: IPostgresEventStoreOptions = {}) {
     const connectionString = options.connectionString || process.env.DATABASE_URL;
     
     if (!connectionString) {
