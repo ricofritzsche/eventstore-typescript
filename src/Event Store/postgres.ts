@@ -160,13 +160,37 @@ export class PostgresEventStore implements IEventStore {
     await this.pool.end();
   }
 
-  async migrate(): Promise<void> {
-    await this.createTables();
+  
+  async initializeDatabase(): Promise<void> {
+    await this.createDatabase();
+    await this.createTableAndIndexes();
   }
 
-  async createTables(): Promise<void> {
-    await this.ensureDatabaseExists();
+  private async createDatabase(): Promise<void> {
+    const adminConnectionString = this.changeDatabaseInConnectionString(
+      process.env.DATABASE_URL!, 
+      'postgres'
+    );
+    
+    const adminPool = new Pool({ connectionString: adminConnectionString });
+    const client = await adminPool.connect();
+    
+    try {
+      await client.query(`CREATE DATABASE ${this.dbName}`);
+      console.log(`Database created: ${this.dbName}`);
+    } catch (err: any) {
+      if (err.code === '42P04') { // already exists
+        console.log(`Database already exists: ${this.dbName}`);
+      } else {
+        throw err;
+      }
+    } finally {
+      client.release();
+      await adminPool.end();
+    }
+  }
 
+  private async createTableAndIndexes() {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -195,29 +219,6 @@ export class PostgresEventStore implements IEventStore {
     }
   }
 
-  private async ensureDatabaseExists(): Promise<void> {
-    const adminConnectionString = this.changeDatabaseInConnectionString(
-      process.env.DATABASE_URL!, 
-      'postgres'
-    );
-    
-    const adminPool = new Pool({ connectionString: adminConnectionString });
-    const client = await adminPool.connect();
-    
-    try {
-      await client.query(`CREATE DATABASE ${this.dbName}`);
-      console.log(`Database created: ${this.dbName}`);
-    } catch (err: any) {
-      if (err.code === '42P04') { // already exists
-        console.log(`Database already exists: ${this.dbName}`);
-      } else {
-        throw err;
-      }
-    } finally {
-      client.release();
-      await adminPool.end();
-    }
-  }
 
   private changeDatabaseInConnectionString(connStr: string, newDbName: string): string {
     const url = new URL(connStr);
@@ -235,5 +236,4 @@ export class PostgresEventStore implements IEventStore {
       return null;
     }
   }
-  
 }
