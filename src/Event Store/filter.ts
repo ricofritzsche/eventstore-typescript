@@ -1,4 +1,4 @@
-import { IEventFilter } from './types';
+import { IEventFilter } from "./types"
 
 export class EventFilter implements IEventFilter {
   public readonly eventTypes: string[];
@@ -28,7 +28,7 @@ export class EventFilter implements IEventFilter {
     return new EventFilter(this.eventTypes, predicates, this.payloadPredicateOptions);
   }
 
-  withPayloadPredicates(predicates: Record<string, unknown>): EventFilter {
+  withPayloadPredicates(predicates: Record<string, unknown>[]): EventFilter {
     const mergedPredicates = { ...this.payloadPredicates, ...predicates };
     return new EventFilter(this.eventTypes, mergedPredicates, this.payloadPredicateOptions);
   }
