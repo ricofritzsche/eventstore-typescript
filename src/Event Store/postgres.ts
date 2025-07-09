@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, QueryResult } from 'pg';
 import { IEventStore, IEventFilter, IHasEventType, IQueryResult, IEventRecord } from './types';
 
 
@@ -15,7 +15,7 @@ export class PostgresEventStore implements IEventStore {
     const connectionString = options.connectionString || process.env.DATABASE_URL;
     if (!connectionString) throw new Error('Connection string missing. DATABASE_URL environment variable not set.');
 
-    const dbName = this.getDatabaseNameFromConnectionString(connectionString);
+    const dbName = PostgresEventStore.getDatabaseNameFromConnectionString(connectionString);
     if (!dbName) throw new Error('Database name not found. Invalid connection string: ' + connectionString);
     this.dbName = dbName;
 
@@ -26,20 +26,27 @@ export class PostgresEventStore implements IEventStore {
   async query<T extends IHasEventType>(filter: IEventFilter): Promise<IQueryResult<T>> {
     const client = await this.pool.connect();
     try {
-      // Get the actual events
       const params: unknown[] = [filter.eventTypes];
 
-      let query = this.buildContextQuery(filter, params);
+      let query = PostgresEventStore.buildContextQuery(filter, params);
       const result = await client.query(query, params);
 
-      const lastRow = result.rows[result.rows.length - 1];
-      const maxSequenceNumber = lastRow ? lastRow.sequence_number : 0;
-
-      const events = result.rows.map(row => this.deserializeEvent<T>(row));
-      
-      return { events, maxSequenceNumber };
+      return { 
+        events: mapRecordsToEvents(result), 
+        maxSequenceNumber: maxSequenceNumber(result) 
+      };
     } finally {
       client.release();
+    }
+
+    function mapRecordsToEvents(result:QueryResult<any>): T[] {
+      return result.rows.map(row => PostgresEventStore.deserializeEvent<T>(row));
+    }
+
+    function maxSequenceNumber(result:QueryResult<any>):number {
+      const lastRow = result.rows[result.rows.length - 1];
+      const maxSequenceNumber = lastRow ? parseInt(lastRow.sequence_number, 10) : 0;
+      return maxSequenceNumber;
     }
   }
 
@@ -49,7 +56,23 @@ export class PostgresEventStore implements IEventStore {
 
     const client = await this.pool.connect();
     try {
+      const cteQuery = PostgresEventStore.buildCteInsertQuery(filter, expectedMaxSequence);
+      const params = compileParams(cteQuery.params);
 
+      const result = await client.query(cteQuery.sql, params);
+
+      if (result.rowCount === 0) {
+        throw new Error('Context changed: events were modified between query() and append()');
+      }
+
+    } catch (error) {
+      throw error;
+    } finally {
+      client.release();
+    }
+
+
+    function compileParams(queryParams: unknown[]) {
       const eventTypes: string[] = [];
       const payloads: string[] = [];
       const metadata: string[] = [];
@@ -62,36 +85,30 @@ export class PostgresEventStore implements IEventStore {
         }));
       }
 
-      const contextQueryForCte = this.buildContextVersionQuery(filter);
-      const cteQuery = this.buildCteInsertQuery(filter, expectedMaxSequence);
-      
       const params = [
-        ...contextQueryForCte.params,                         // Context parameters (dynamic based on filter)
-        eventTypes,                                           // Event types to insert
-        payloads,                                             // Payloads to insert
-        metadata                                             // Metadata to insert
+        ...queryParams, // Context parameters (dynamic based on filter)
+        eventTypes, // Event types to insert
+        payloads, // Payloads to insert
+        metadata // Metadata to insert
       ];
-
-      const result = await client.query(cteQuery, params);
-
-      if (result.rowCount === 0) {
-        throw new Error('Context changed: events were modified between query and append');
-      }
-
-    } catch (error) {
-      throw error;
-    } finally {
-      client.release();
+      return params;
     }
   }
 
-  
+
+  async initializeDatabase(): Promise<void> {
+    await this.createDatabase();
+    await this.createTableAndIndexes();
+  }
+
+
   async close(): Promise<void> {
     await this.pool.end();
   }
 
 
-  private buildContextQuery(filter: IEventFilter, params: unknown[]) {
+  // The SQL query to return all context event records that match the filter
+  private static buildContextQuery(filter: IEventFilter, params: unknown[]) {
     let query = 'SELECT * FROM events WHERE event_type = ANY($1)';
 
     if (filter.payloadPredicates && Object.keys(filter.payloadPredicates).length > 0) {
@@ -113,8 +130,10 @@ export class PostgresEventStore implements IEventStore {
   }
 
 
-  private buildContextVersionQuery(filter: IEventFilter): { sql: string; params: unknown[] } {
-    let sql = 'SELECT MAX(sequence_number) AS max_seq FROM events WHERE event_type = ANY($1)';
+  // The SQL query to return the current max sequence number for the context
+  private static buildContextVersionQueryConditions(filter: IEventFilter): { sql: string; params: unknown[] } {
+    let sql = 'event_type = ANY($1)';
+
     const params: unknown[] = [filter.eventTypes];
 
     if (filter.payloadPredicates && Object.keys(filter.payloadPredicates).length > 0) {
@@ -134,30 +153,37 @@ export class PostgresEventStore implements IEventStore {
     return { sql, params };
   }
 
-  private buildCteInsertQuery(filter: IEventFilter, expectedMaxSeq: number): string {
-    const contextQuery = this.buildContextVersionQuery(filter);
-    const contextCondition = contextQuery.sql.replace('SELECT MAX(sequence_number) AS max_seq FROM events WHERE ', '');
-    
-    // Calculate parameter positions for insert values
-    const contextParamCount = contextQuery.params.length;
-    const eventTypesParam = contextParamCount + 1;
-    const payloadsParam = contextParamCount + 2;
-    const metadataParam = contextParamCount + 3;
+  // The SQL query to insert new events into the events table if and only if the context has not changed
+  private static buildCteInsertQuery(filter: IEventFilter, expectedMaxSeq: number): {sql:string, params: unknown[]} {
+    const contextVersionQueryConditions = PostgresEventStore.buildContextVersionQueryConditions(filter);
+    return buildCteInsertQuerySql();
 
-    return `
-      WITH context AS (
-        SELECT MAX(sequence_number) AS max_seq
-        FROM events
-        WHERE ${contextCondition}
-      )
-      INSERT INTO events (event_type, payload, metadata)
-      SELECT unnest($${eventTypesParam}::text[]), unnest($${payloadsParam}::jsonb[]), unnest($${metadataParam}::jsonb[])
-      FROM context
-      WHERE COALESCE(max_seq, 0) = ${expectedMaxSeq}
-    `;
+    
+    function buildCteInsertQuerySql() {
+      const contextParamCount = contextVersionQueryConditions.params.length;
+      const eventTypesParam = contextParamCount + 1;
+      const payloadsParam = contextParamCount + 2;
+      const metadataParam = contextParamCount + 3;
+
+      return {
+        sql: `
+        WITH context AS (
+          SELECT MAX(sequence_number) AS max_seq
+          FROM events
+          WHERE ${contextVersionQueryConditions.sql}
+        )
+        INSERT INTO events (event_type, payload, metadata)
+        SELECT unnest($${eventTypesParam}::text[]), unnest($${payloadsParam}::jsonb[]), unnest($${metadataParam}::jsonb[])
+        FROM context
+        WHERE COALESCE(max_seq, 0) = ${expectedMaxSeq}
+      `,
+        params: contextVersionQueryConditions.params
+      };
+    }
   }
 
-  private deserializeEvent<T extends IHasEventType>(row: any): T {
+
+  static deserializeEvent<T extends IHasEventType>(row: any): T {
     const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
     return {
       ...payload,
@@ -167,17 +193,9 @@ export class PostgresEventStore implements IEventStore {
     } as T;
   }
 
-  
-
-
-
-  async initializeDatabase(): Promise<void> {
-    await this.createDatabase();
-    await this.createTableAndIndexes();
-  }
 
   private async createDatabase(): Promise<void> {
-    const adminConnectionString = this.changeDatabaseInConnectionString(
+    const adminConnectionString = PostgresEventStore.changeDatabaseInConnectionString(
       process.env.DATABASE_URL!, 
       'postgres'
     );
@@ -230,13 +248,13 @@ export class PostgresEventStore implements IEventStore {
   }
 
 
-  private changeDatabaseInConnectionString(connStr: string, newDbName: string): string {
+  private static changeDatabaseInConnectionString(connStr: string, newDbName: string): string {
     const url = new URL(connStr);
     url.pathname = `/${newDbName}`;
     return url.toString();
   }
 
-  private getDatabaseNameFromConnectionString(connStr: string): string | null {
+  private static getDatabaseNameFromConnectionString(connStr: string): string | null {
     try {
       const url = new URL(connStr);
       const dbName = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
