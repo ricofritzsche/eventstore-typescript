@@ -13,14 +13,15 @@ export class PostgresEventStore implements IEventStore {
 
   constructor(options: IPostgresEventStoreOptions = {}) {
     const connectionString = options.connectionString || process.env.DATABASE_URL;
-    
-    if (!connectionString) {
-      throw new Error('DATABASE_URL environment variable is required');
-    }
+    if (!connectionString) throw new Error('Connection string missing. DATABASE_URL environment variable not set.');
 
-    this.dbName = this.getDatabaseNameFromConnectionString(connectionString) || 'bank';
+    const dbName = this.getDatabaseNameFromConnectionString(connectionString);
+    if (!dbName) throw new Error('Database name not found. Invalid connection string: ' + connectionString);
+    this.dbName = dbName;
+
     this.pool = new Pool({ connectionString });
   }
+
 
   async query<T extends IHasEventType>(filter: IEventFilter): Promise<IQueryResult<T>> {
     const client = await this.pool.connect();
