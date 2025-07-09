@@ -1,8 +1,8 @@
-import { EventStore, EventFilter, HasEventType } from '../Event Store/index';
+import { EventStore, IEventFilter, IHasEventType } from '../Event Store/index';
 import dotenv from 'dotenv';
 
 
-interface AssetRegistered extends HasEventType {
+interface AssetRegistered extends IHasEventType {
   assetId: string;
   name: string;
   description?: string;
@@ -37,7 +37,7 @@ class AssetRegisteredEvent implements AssetRegistered {
   }
 }
 
-interface DeviceBound extends HasEventType {
+interface DeviceBound extends IHasEventType {
   deviceId: string;
   assetId: string;
   boundAt: Date;

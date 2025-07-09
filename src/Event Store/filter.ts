@@ -1,4 +1,4 @@
-import { EventFilter as IEventFilter } from './types';
+import { IEventFilter } from './types';
 
 export class EventFilter implements IEventFilter {
   public readonly eventTypes: string[];
