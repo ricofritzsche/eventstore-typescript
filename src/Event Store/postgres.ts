@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { IEventStore, IEventFilter, IHasEventType, IEventRecord } from './types';
+import { IEventStore, IEventFilter, IHasEventType, IQueryResult, IEventRecord } from './types';
 
 
 export interface IPostgresEventStoreOptions {
@@ -22,7 +22,7 @@ export class PostgresEventStore implements IEventStore {
     this.pool = new Pool({ connectionString });
   }
 
-  async query<T extends IHasEventType>(filter: IEventFilter): Promise<{ events: T[]; maxSequenceNumber: number }> {
+  async query<T extends IHasEventType>(filter: IEventFilter): Promise<IQueryResult<T>> {
     const client = await this.pool.connect();
     try {
       // First get the max sequence number for the context
