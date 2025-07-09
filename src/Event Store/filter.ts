@@ -5,7 +5,7 @@ export class EventFilter implements IEventFilter {
   public readonly payloadPredicates?: Record<string, unknown>;
   public readonly payloadPredicateOptions?: Record<string, unknown>[];
 
-  constructor(eventTypes: string[], payloadPredicates?: Record<string, unknown>, payloadPredicateOptions?: Record<string, unknown>[]) {
+  protected constructor(eventTypes: string[], payloadPredicates?: Record<string, unknown>, payloadPredicateOptions?: Record<string, unknown>[]) {
     this.eventTypes = eventTypes;
     if (payloadPredicates !== undefined) {
       this.payloadPredicates = payloadPredicates;
@@ -15,11 +15,11 @@ export class EventFilter implements IEventFilter {
     }
   }
 
-  static new(eventTypes: string[]): EventFilter {
+  static fromEventTypesOnly(eventTypes: string[]): EventFilter {
     return new EventFilter(eventTypes);
   }
 
-  static createFilter(eventTypes: string[], payloadPredicateOptions?: Record<string, unknown>[]): EventFilter {
+  static fromPayloadPredicateOptions(eventTypes: string[], payloadPredicateOptions?: Record<string, unknown>[]): EventFilter {
     return new EventFilter(eventTypes, undefined, payloadPredicateOptions);
   }
 
