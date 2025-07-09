@@ -14,11 +14,18 @@ export interface EventRecord {
 export interface EventFilter {
   eventTypes: string[];
   payloadPredicates?: Record<string, unknown>;
+  payloadPredicateOptions?: Record<string, unknown>[];
+}
+
+export interface QueryResult<T extends HasEventType> {
+  events: T[];
+  maxSequenceNumber: number;
 }
 
 export interface IEventStore {
-  query<T extends HasEventType>(filter: EventFilter): Promise<T[]>;
-  append<T extends HasEventType>(filter: EventFilter, events: T[]): Promise<void>;
+  query<T extends HasEventType>(filter: EventFilter): Promise<QueryResult<T>>;
+  append<T extends HasEventType>(filter: EventFilter, events: T[], expectedMaxSequence: number): Promise<void>;
+  close(): Promise<void>;
 }
 
 export interface EventStoreOptions {

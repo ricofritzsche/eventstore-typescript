@@ -1,4 +1,4 @@
-import { EventStore, EventFilter, HasEventType } from './index';
+import { EventStore, EventFilter, HasEventType } from '../Event Store/index';
 import dotenv from 'dotenv';
 
 
