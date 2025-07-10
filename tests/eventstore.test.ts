@@ -23,11 +23,11 @@ class TestEvent implements IHasEventType {
 describe('EventStore', () => {
   let eventStore: PostgresEventStore;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     eventStore= new PostgresEventStore(
       { connectionString: process.env.DATABASE_TEST_URL || 'postgres://postgres:postgres@localhost:5432/eventstore_test' }
     );
-    eventStore.initializeDatabase();
+    await eventStore.initializeDatabase();
   });
 
   afterEach(async () => {
