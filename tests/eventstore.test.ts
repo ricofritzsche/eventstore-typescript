@@ -1,9 +1,10 @@
-import { EventStore, EventFilter, HasEventType } from '../src';
+import { PostgresEventStore, EventFilter, IHasEventType } from '../src/Event Store';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-class TestEvent implements HasEventType {
+
+class TestEvent implements IHasEventType {
   constructor(
     public readonly id: string,
     public readonly data: Record<string, unknown>,
@@ -20,10 +21,10 @@ class TestEvent implements HasEventType {
 }
 
 describe('EventStore', () => {
-  let eventStore: EventStore;
+  let eventStore: PostgresEventStore;
 
   beforeEach(() => {
-    eventStore= new EventStore(
+    eventStore= new PostgresEventStore(
       { connectionString: process.env.DATABASE_TEST_URL || 'postgres://postgres:postgres@localhost:5432/eventstore_test' }
     );
   });
@@ -33,17 +34,17 @@ describe('EventStore', () => {
   });
 
   it('should create an instance', () => {
-    expect(eventStore).toBeInstanceOf(EventStore);
+    expect(eventStore).toBeInstanceOf(PostgresEventStore);
   });
 
   it('should create filter', () => {
-    const filter = EventStore.createFilter(['TestEvent']);
+    const filter = EventFilter.fromEventTypesOnly(['TestEvent']);
     expect(filter.eventTypes).toEqual(['TestEvent']);
   });
 
   it('should create filter with payload predicates', () => {
-    const filter = EventStore
-      .createFilter(['TestEvent'])
+    const filter = EventFilter
+      .fromEventTypesOnly(['TestEvent'])
       .withPayloadPredicate('id', '123');
     
     expect(filter.eventTypes).toEqual(['TestEvent']);
