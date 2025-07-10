@@ -1,10 +1,9 @@
-import { EventStore, EventFilter } from '../src/eventstore';
-import { HasEventType } from '../src/eventstore/types';
+import { IHasEventType, IEventStore, EventFilter, PostgresEventStore } from '../src/eventstore';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-class TestEvent implements HasEventType {
+class TestEvent implements IHasEventType {
   constructor(
     public readonly id: string,
     public readonly data: Record<string, unknown>,
@@ -22,13 +21,13 @@ class TestEvent implements HasEventType {
 }
 
 describe('Optimistic Locking CTE Condition', () => {
-  let eventStore: EventStore;
+  let eventStore: PostgresEventStore;
 
   beforeEach(async () => {
-    eventStore = new EventStore(
+    eventStore = new PostgresEventStore(
       { connectionString: process.env.DATABASE_TEST_URL || 'postgres://postgres:postgres@localhost:5432/eventstore_test' }
     );
-    await eventStore.migrate();
+    await eventStore.initializeDatabase();
   });
 
   afterEach(async () => {
@@ -37,7 +36,7 @@ describe('Optimistic Locking CTE Condition', () => {
 
   it('should succeed when sequence number matches expected', async () => {
     const eventType = `TestEvent_${Date.now()}_1`;
-    const filter = EventFilter.createFilter([eventType]);
+    const filter = EventFilter.fromEventTypesOnly([eventType]);
     
     // First, query to get current state and sequence
     const initialResult = await eventStore.query<TestEvent>(filter);
@@ -57,7 +56,7 @@ describe('Optimistic Locking CTE Condition', () => {
 
   it('should fail when sequence number does not match (CTE condition)', async () => {
     const eventType = `TestEvent_${Date.now()}_2`;
-    const filter = EventFilter.createFilter([eventType]);
+    const filter = EventFilter.fromEventTypesOnly([eventType]);
     
     // Insert an initial event
     const event1 = new TestEvent('test-1', { value: 'first' }, eventType);
@@ -82,7 +81,7 @@ describe('Optimistic Locking CTE Condition', () => {
 
   it('should handle concurrent modifications correctly', async () => {
     const eventType = `TestEvent_${Date.now()}_3`;
-    const filter = EventFilter.createFilter([eventType]);
+    const filter = EventFilter.fromEventTypesOnly([eventType]);
     
     // Simulate concurrent scenario:
     // 1. Two processes query at the same time
@@ -114,12 +113,12 @@ describe('Optimistic Locking CTE Condition', () => {
   it('should work with payload predicates in CTE condition', async () => {
     const eventType = `TestEvent_${Date.now()}_4`;
     const accountId = 'account-123';
-    const filter = EventFilter.createFilter([eventType])
-      .withPayloadPredicates({ accountId });
+    const filter = EventFilter.fromEventTypesOnly([eventType])
+      .withPayloadPredicates([{ accoundId: accountId }]);
     
     // Insert event for different account (should not affect our context)
-    const otherFilter = EventFilter.createFilter([eventType])
-      .withPayloadPredicates({ accountId: 'other-account' });
+    const otherFilter = EventFilter.fromEventTypesOnly([eventType])
+      .withPayloadPredicates([{ accountId: 'other-account' }]);
     const otherEvent = {
       id: 'other',
       accountId: 'other-account', // Top level property
@@ -153,7 +152,7 @@ describe('Optimistic Locking CTE Condition', () => {
 
   it('should work with multiple payload predicate options (OR conditions)', async () => {
     const eventType = `TestEvent_${Date.now()}_5`;
-    const filter = EventFilter.createFilter([eventType], [
+    const filter = EventFilter.fromPayloadPredicateOptions([eventType], [
       { accountId: 'account-1' },
       { accountId: 'account-2' }
     ]);
