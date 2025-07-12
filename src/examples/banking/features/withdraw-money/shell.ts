@@ -1,5 +1,5 @@
-import { EventFilter } from '../../eventstore';
-import { IEventStore } from '../../eventstore/types';
+import { EventFilter } from '../../../../eventstore';
+import { IEventStore } from '../../../../eventstore/types';
 import { WithdrawMoneyCommand, WithdrawResult } from './types';
 import { processWithdrawCommand } from './core';
 import { MoneyWithdrawnEvent } from './events';
@@ -31,7 +31,7 @@ export async function execute(
   try {
     // Use a filter that captures all events that affect the account balance
     // This matches the scope of events considered in getWithdrawState
-    const filter = EventFilter.createFilter(
+    const filter = EventFilter.fromPayloadPredicateOptions(
       ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
       [
         { accountId: command.accountId },
@@ -68,7 +68,7 @@ async function getWithdrawState(eventStore: IEventStore, accountId: string): Pro
   maxSequenceNumber: number;
 }> {
   // Single optimized query using payloadPredicateOptions for multiple account relationships
-  const filter = EventFilter.createFilter(
+  const filter = EventFilter.fromPayloadPredicateOptions(
     ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
     [
       { accountId: accountId },

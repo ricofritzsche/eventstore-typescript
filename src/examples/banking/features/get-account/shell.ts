@@ -1,5 +1,5 @@
-import { EventFilter } from '../../eventstore';
-import { IEventStore } from '../../eventstore';
+import { EventFilter } from '../../../../eventstore';
+import { IEventStore } from '../../../../eventstore';
 import { GetAccountQuery, GetAccountResult, BankAccount } from './types';
 
 export async function execute(
@@ -18,7 +18,7 @@ async function getAccountViewState(eventStore: IEventStore, accountId: string): 
   maxSequenceNumber: number;
 }> {
   // Single optimized query using payloadPredicateOptions for multiple account relationships
-  const filter = EventFilter.createFilter(
+  const filter = EventFilter.fromPayloadPredicateOptions(
     ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
     [
       { accountId: accountId },

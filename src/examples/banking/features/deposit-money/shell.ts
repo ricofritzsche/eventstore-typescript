@@ -1,5 +1,5 @@
-import { EventFilter } from '../../eventstore';
-import { IEventStore } from '../../eventstore';
+import { EventFilter } from '../../../../eventstore';
+import { IEventStore } from '../../../../eventstore';
 import { DepositMoneyCommand, DepositResult } from './types';
 import { processDepositCommand } from './core';
 import { MoneyDepositedEvent } from './events';
@@ -29,8 +29,8 @@ export async function execute(
   }
 
   try {
-    const filter = EventFilter.createFilter(['BankAccountOpened', 'MoneyDeposited'])
-      .withPayloadPredicates({ accountId: command.accountId });
+    const filter = EventFilter.fromEventTypesOnly(['BankAccountOpened', 'MoneyDeposited'])
+      .withPayloadPredicates([{ accountId: command.accountId }]);
     
     const event = new MoneyDepositedEvent(
       result.event.accountId,
@@ -58,8 +58,8 @@ async function getDepositState(eventStore: IEventStore, accountId: string): Prom
   };
   maxSequenceNumber: number;
 }> {
-  const filter = EventFilter.createFilter(['BankAccountOpened', 'MoneyDeposited'])
-    .withPayloadPredicates({ accountId });
+  const filter = EventFilter.fromEventTypesOnly(['BankAccountOpened', 'MoneyDeposited'])
+    .withPayloadPredicate("accountId", accountId);
   
   const result = await eventStore.query<any>(filter);
   

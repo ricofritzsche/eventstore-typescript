@@ -1,5 +1,5 @@
-import { EventFilter } from '../../eventstore';
-import { IEventStore } from '../../eventstore/types';
+import { EventFilter } from '../../../../eventstore';
+import { IEventStore } from '../../../../eventstore/types';
 import { OpenBankAccountCommand, OpenAccountResult } from './types';
 import { processOpenAccountCommand } from './core';
 import { BankAccountOpenedEvent } from './events';
@@ -20,7 +20,7 @@ export async function execute(
   }
 
   try {
-    const appendFilter = EventFilter.createFilter(['BankAccountOpened']);
+    const appendFilter = EventFilter.fromEventTypesOnly(['BankAccountOpened']);
     
     const event = new BankAccountOpenedEvent(
       result.event.accountId,
@@ -48,7 +48,7 @@ async function getOpenAccountState(eventStore: IEventStore, customerName: string
   };
   maxSequenceNumber: number;
 }> {
-  const filter = EventFilter.createFilter(['BankAccountOpened']);
+  const filter = EventFilter.fromEventTypesOnly(['BankAccountOpened']);
   
   const result = await eventStore.query<any>(filter);
   

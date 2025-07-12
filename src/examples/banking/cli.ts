@@ -2,7 +2,7 @@
 
 import * as readline from 'readline';
 import dotenv from 'dotenv';
-import { EventStore } from './eventstore';
+import { PostgresEventStore, IEventStore } from '../../eventstore';
 import * as OpenBankAccount from './features/open-bank-account';
 import * as GetAccount from './features/get-account';
 import * as DepositMoney from './features/deposit-money';
@@ -17,15 +17,15 @@ const rl = readline.createInterface({
 });
 
 class BankingCLI {
-  private eventStore: EventStore;
+  private eventStore: PostgresEventStore;
 
   constructor() {
-    this.eventStore = new EventStore();
+    this.eventStore = new PostgresEventStore();
   }
 
   async start() {
     try {
-      await this.eventStore.migrate();
+      await this.eventStore.initializeDatabase();
       console.log('🏦 Welcome to the Event-Sourced Banking System!\n');
       await this.showMainMenu();
     } catch (error) {

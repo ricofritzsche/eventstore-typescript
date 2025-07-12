@@ -1,5 +1,5 @@
-import { EventFilter } from '../../eventstore';
-import { IEventStore } from '../../eventstore/types';
+import { EventFilter } from '../../../../eventstore';
+import { IEventStore } from '../../../../eventstore/types';
 import { TransferMoneyCommand, TransferResult } from './types';
 import { processTransferCommand } from './core';
 import { MoneyTransferredEvent } from './events';
@@ -36,7 +36,7 @@ export async function execute(
   }
 
   try {
-    const filter = EventFilter.createFilter(
+    const filter = EventFilter.fromPayloadPredicateOptions(
       ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
       [
         { accountId: command.fromAccountId },
@@ -75,7 +75,7 @@ async function getTransferState(eventStore: IEventStore, fromAccountId: string, 
   };
   maxSequenceNumber: number;
 }> {
-  const filter = EventFilter.createFilter(
+  const filter = EventFilter.fromPayloadPredicateOptions(
     ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
     [
       { accountId: fromAccountId },
