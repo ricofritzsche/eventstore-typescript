@@ -28,8 +28,10 @@ export class PostgresEventStore implements IEventStore {
     try {
       const params: unknown[] = [filter.eventTypes];
 
-      let query = PostgresEventStore.buildContextQuery(filter, params);
-      const result = await client.query(query, params);
+      let query = PostgresEventStore.buildContextQuery(filter);
+      console.log("query(): " + query.sql + " --- " + JSON.stringify(query.params))
+
+      const result = await client.query(query.sql, query.params);
 
       return { 
         events: mapRecordsToEvents(result), 
@@ -59,6 +61,7 @@ export class PostgresEventStore implements IEventStore {
       const cteQuery = PostgresEventStore.buildCteInsertQuery(filter, expectedMaxSequence);
       const params = compileParams(cteQuery.params);
 
+      console.log("append(): " + cteQuery.sql + " --- " + JSON.stringify(params))
       const result = await client.query(cteQuery.sql, params);
 
       if (result.rowCount === 0) {
@@ -108,11 +111,13 @@ export class PostgresEventStore implements IEventStore {
 
 
   // The SQL query to return all context event records that match the filter
-  private static buildContextQuery(filter: IEventFilter, params: unknown[]) {
+  private static buildContextQuery(filter: IEventFilter):{ sql: string; params: unknown[] } {
     let query = 'SELECT * FROM events WHERE event_type = ANY($1)';
+    const params: unknown[] = [filter.eventTypes];
 
     if (filter.payloadPredicates && Object.keys(filter.payloadPredicates).length > 0) {
       query += ' AND payload @> $2';
+      console.log(" *************** " + JSON.stringify(filter.payloadPredicates))
       params.push(JSON.stringify(filter.payloadPredicates));
     }
 
@@ -126,7 +131,10 @@ export class PostgresEventStore implements IEventStore {
     }
 
     query += ' ORDER BY sequence_number ASC';
-    return query;
+    return {
+      sql: query,
+      params
+    };
   }
 
   // Only the SQL conditions to return the current max sequence number for the context

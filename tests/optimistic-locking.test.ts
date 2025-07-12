@@ -116,20 +116,23 @@ describe('Optimistic Locking CTE Condition', () => {
     expect(finalResult.events[0]?.id).toBe('concurrent-3.a.1');
     expect(finalResult.maxSequenceNumber).toBeGreaterThan(0);
   });
-/*
+
+
   it('should work with payload predicates in CTE condition', async () => {
     const eventType = `TestEvent_${Date.now()}_4`;
     const accountId = 'account-123';
+
     const filter = EventFilter.fromEventTypesOnly([eventType])
-      .withPayloadPredicates([{ accoundId: accountId }]);
-    
+                              //.withPayloadPredicate("accountId", accountId);
+                              .withPayloadPredicates([{ accountId: accountId }]);
+
     // Insert event for different account (should not affect our context)
     const otherFilter = EventFilter.fromEventTypesOnly([eventType])
-      .withPayloadPredicates([{ accountId: 'other-account' }]);
+                                   .withPayloadPredicates([{ accountId: 'other-account' }]);
     const otherEvent = {
-      id: 'other',
+      id: 'test-4.1',
       accountId: 'other-account', // Top level property
-      value: 'other',
+      value: 'first',
       eventType: () => eventType,
       eventVersion: () => '1.0'
     };
@@ -138,13 +141,13 @@ describe('Optimistic Locking CTE Condition', () => {
     // Query our specific context
     const result = await eventStore.query<TestEvent>(filter);
     expect(result.events).toHaveLength(0);
-    expect(result.maxSequenceNumber).toBe(0); // Should be 0 for our context
+    expect(result.maxSequenceNumber).toBe(0); // Should still be 0 for our context
     
     // Create event with accountId at the top level (not nested in data)
     const event = {
-      id: 'test-1',
+      id: 'test-4.2',
       accountId, // Top level property for payload predicate matching
-      value: 'first',
+      value: 'second',
       eventType: () => eventType,
       eventVersion: () => '1.0'
     };
@@ -153,10 +156,11 @@ describe('Optimistic Locking CTE Condition', () => {
     // Verify our event was inserted
     const afterInsert = await eventStore.query<TestEvent>(filter);
     expect(afterInsert.events).toHaveLength(1);
-    expect(afterInsert.events[0]?.id).toBe('test-1');
+    expect(afterInsert.events[0]?.id).toBe('test-4.2');
     expect(afterInsert.maxSequenceNumber).toBeGreaterThan(0);
   });
 
+/*
   it('should work with multiple payload predicate options (OR conditions)', async () => {
     const eventType = `TestEvent_${Date.now()}_5`;
     const filter = EventFilter.fromPayloadPredicateOptions([eventType], [

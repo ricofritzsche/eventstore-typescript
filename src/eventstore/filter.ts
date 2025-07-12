@@ -28,12 +28,13 @@ export class EventFilter implements IEventFilter {
 
   // Fluent interface methods to extend a filter
   withPayloadPredicate(key: string, value: unknown): EventFilter {
-    const predicates = { ...this.payloadPredicates, [key]: value };
-    return new EventFilter(this.eventTypes, predicates, this.payloadPredicateOptions);
+    const mergedPredicates = { ...this.payloadPredicates, [key]: value };
+    return new EventFilter(this.eventTypes, mergedPredicates, this.payloadPredicateOptions);
   }
 
   withPayloadPredicates(predicates: Record<string, unknown>[]): EventFilter {
-    const mergedPredicates = { ...this.payloadPredicates, ...predicates };
+    const combinedPredicates = Object.assign({}, ...predicates);
+    const mergedPredicates = { ...this.payloadPredicates, ...combinedPredicates };
     return new EventFilter(this.eventTypes, mergedPredicates, this.payloadPredicateOptions);
   }
 }
