@@ -160,7 +160,7 @@ describe('Optimistic Locking CTE Condition', () => {
     expect(afterInsert.maxSequenceNumber).toBeGreaterThan(0);
   });
 
-/*
+
   it('should work with multiple payload predicate options (OR conditions)', async () => {
     const eventType = `TestEvent_${Date.now()}_5`;
     const filter = EventFilter.fromPayloadPredicateOptions([eventType], [
@@ -170,7 +170,7 @@ describe('Optimistic Locking CTE Condition', () => {
     
     // Insert event for account-1
     const event1 = {
-      id: 'test-1',
+      id: 'test-5.1',
       accountId: 'account-1', // Top level property
       value: 'first',
       eventType: () => eventType,
@@ -186,17 +186,23 @@ describe('Optimistic Locking CTE Condition', () => {
     
     // Insert event for account-2 with correct sequence
     const event2 = {
-      id: 'test-2',
+      id: 'test-5.2',
       accountId: 'account-2', // Top level property
       value: 'second',
       eventType: () => eventType,
       eventVersion: () => '1.0'
     };
-    await expect(eventStore.append(filter, [event2], currentSequence)).resolves.not.toThrow();
+    //await expect(eventStore.append(filter, [event2], currentSequence)).resolves.not.toThrow();
+    await eventStore.append(filter, [event2], currentSequence);
+
+    const result2 = await eventStore.query<TestEvent>(filter);
+    expect(result2.events).toHaveLength(2);
+    const currentSequence2 = result2.maxSequenceNumber;
+    expect(currentSequence2).toBeGreaterThan(currentSequence);
     
     // Try to insert with outdated sequence (should fail)
     const event3 = {
-      id: 'test-3',
+      id: 'test-5.3',
       accountId: 'account-1', // Top level property
       value: 'third',
       eventType: () => eventType,
@@ -204,7 +210,7 @@ describe('Optimistic Locking CTE Condition', () => {
     };
     await expect(
       eventStore.append(filter, [event3], currentSequence) // Outdated, should be currentSequence + 1
-    ).rejects.toThrow('Context changed: events were modified between query and append');
+    ).rejects.toThrow('Context changed: events were modified between query() and append()');
   });
-*/
+
 });

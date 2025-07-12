@@ -26,10 +26,7 @@ export class PostgresEventStore implements IEventStore {
   async query<T extends IHasEventType>(filter: IEventFilter): Promise<IQueryResult<T>> {
     const client = await this.pool.connect();
     try {
-      const params: unknown[] = [filter.eventTypes];
-
       let query = PostgresEventStore.buildContextQuery(filter);
-      console.log("query(): " + query.sql + " --- " + JSON.stringify(query.params))
 
       const result = await client.query(query.sql, query.params);
 
@@ -59,9 +56,8 @@ export class PostgresEventStore implements IEventStore {
     const client = await this.pool.connect();
     try {
       const cteQuery = PostgresEventStore.buildCteInsertQuery(filter, expectedMaxSequence);
-      const params = compileParams(cteQuery.params);
+      const params = prepareCteInsertQueryParams(cteQuery.params);
 
-      console.log("append(): " + cteQuery.sql + " --- " + JSON.stringify(params))
       const result = await client.query(cteQuery.sql, params);
 
       if (result.rowCount === 0) {
@@ -75,7 +71,7 @@ export class PostgresEventStore implements IEventStore {
     }
 
 
-    function compileParams(queryParams: unknown[]) {
+    function prepareCteInsertQueryParams(queryParams: unknown[]) {
       const eventTypes: string[] = [];
       const payloads: string[] = [];
       const metadata: string[] = [];
@@ -117,7 +113,6 @@ export class PostgresEventStore implements IEventStore {
 
     if (filter.payloadPredicates && Object.keys(filter.payloadPredicates).length > 0) {
       query += ' AND payload @> $2';
-      console.log(" *************** " + JSON.stringify(filter.payloadPredicates))
       params.push(JSON.stringify(filter.payloadPredicates));
     }
 
