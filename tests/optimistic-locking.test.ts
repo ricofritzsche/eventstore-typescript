@@ -84,8 +84,9 @@ describe('Optimistic Locking CTE Condition', () => {
     expect(afterFailedInsert.maxSequenceNumber).toBe(currentSequence);
   });
 
-/*
+
   it('should handle concurrent modifications correctly', async () => {
+    // Create temporary event type name
     const eventType = `TestEvent_${Date.now()}_3`;
     const filter = EventFilter.fromEventTypesOnly([eventType]);
     
@@ -99,23 +100,23 @@ describe('Optimistic Locking CTE Condition', () => {
     expect(result1.maxSequenceNumber).toBe(0);
     expect(result2.maxSequenceNumber).toBe(0);
     
-    // 2. First process successfully appends
-    const event1 = new TestEvent('concurrent-1', { process: 'A' }, eventType);
+    // 2. First process successfully appends using its context sequence number
+    const event1 = new TestEvent('concurrent-3.a.1', { process: 'A' }, eventType);
     await eventStore.append(filter, [event1], result1.maxSequenceNumber);
     
-    // 3. Second process tries to append with same sequence (should fail)
-    const event2 = new TestEvent('concurrent-2', { process: 'B' }, eventType);
+    // 3. Second process tries to append its context sequence number (which is now outdated due to first process)
+    const event2 = new TestEvent('concurrent-3.b.1', { process: 'B' }, eventType);
     await expect(
       eventStore.append(filter, [event2], result2.maxSequenceNumber)
-    ).rejects.toThrow('Context changed: events were modified between query and append');
+    ).rejects.toThrow('Context changed: events were modified between query() and append()');
     
     // Verify only the first event was inserted
     const finalResult = await eventStore.query<TestEvent>(filter);
     expect(finalResult.events).toHaveLength(1);
-    expect(finalResult.events[0]?.id).toBe('concurrent-1');
+    expect(finalResult.events[0]?.id).toBe('concurrent-3.a.1');
     expect(finalResult.maxSequenceNumber).toBeGreaterThan(0);
   });
-
+/*
   it('should work with payload predicates in CTE condition', async () => {
     const eventType = `TestEvent_${Date.now()}_4`;
     const accountId = 'account-123';
