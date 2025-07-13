@@ -17,7 +17,7 @@ const rl = readline.createInterface({
 });
 
 class BankingCLI {
-  private eventStore: PostgresEventStore;
+  private readonly eventStore: PostgresEventStore;
 
   constructor() {
     this.eventStore = new PostgresEventStore();

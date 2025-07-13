@@ -28,7 +28,7 @@ describe('Transform Functions', () => {
       expect(result).toEqual({
         data: 'test',
         userId: '456',
-        event_type: 'UserCreated',
+        eventType: 'UserCreated',
         sequenceNumber: '123',
         occurredAt: '2023-01-01T00:00:00Z'
       });
@@ -47,7 +47,7 @@ describe('Transform Functions', () => {
       expect(result).toEqual({
         data: 'test',
         userId: '456',
-        event_type: 'UserCreated',
+        eventType: 'UserCreated',
         sequenceNumber: '123',
         occurredAt: '2023-01-01T00:00:00Z'
       });

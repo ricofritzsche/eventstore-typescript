@@ -5,7 +5,7 @@ export function deserializeEvent<T extends HasEventType>(row: any): T {
   const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
   return {
     ...payload,
-    event_type: row.event_type,
+    eventType: row.event_type,
     sequenceNumber: row.sequence_number,
     occurredAt: row.occurred_at
   } as T;

@@ -9,7 +9,7 @@ console.log("Run ID: " + RUN_ID + "\n")
 
 // Event names are suffixed with RUN_ID so there are no collisions between
 // different runs of this example. Usually the event names are fixed.
-const STUDENT_REGISTERED_EVENTNAME = "StudenRegistered_" + RUN_ID;
+const STUDENT_REGISTERED_EVENTNAME = "StudentRegistered_" + RUN_ID;
 const COURSED_OPENED_EVENTNAME = "CourseOpened_" + RUN_ID;
 const STUDENT_ENROLLED_IN_COURSE_EVENTNAME = "StudentEnrolledInCourse_" + RUN_ID;
 
@@ -35,7 +35,9 @@ async function main() {
     const eventstore = new PostgresEventStore({ 
         connectionString: process.env.DATABASE_TEST_URL || 'postgres://postgres:postgres@localhost:5432/eventstore'
     });
-    eventstore.initializeDatabase();
+
+    await eventstore.initializeDatabase();
+
     try{
         /*
         We want to append an event without checking for consistency.
@@ -69,7 +71,7 @@ async function main() {
         await eventstore.append<VeryGenericEvent>(filterForEmptyContext, [event2CourseOpened], 0);
 
         const event3RegisterJohnWithCourse = new VeryGenericEvent('99', { studentId: '1' }, STUDENT_ENROLLED_IN_COURSE_EVENTNAME);
-        await eventstore.append<VeryGenericEvent>(filterForEmptyContext, [event3RegisterJohnWithCourse], 0)
+        await eventstore.append<VeryGenericEvent>(filterForEmptyContext, [event3RegisterJohnWithCourse], 0);
 
         /*
         Now for the real fun: we want a conditional appened.
@@ -97,13 +99,19 @@ async function main() {
         // Build context model from events
         const contextModel = {studentRegistered: false, courseOpened: false, studentAlreadyEnrolledInCourse: false}
         for (const event of context.events) {
-            if (event.eventType() === STUDENT_REGISTERED_EVENTNAME && event.id === idOfStudentToEnroll) {
+            console.log(`Event structure: ${JSON.stringify(event, null, 2)}`);
+            console.log(`Event keys: ${Object.keys(event)}`);
+            console.log(`Event type check - has eventType method: ${typeof event.eventType === 'function'}`);
+            console.log(`Event eventTypeName property: ${(event as any).eventTypeName}`);
+            console.log('---');
+            
+            if ((event as any).eventType  === STUDENT_REGISTERED_EVENTNAME && event.id === idOfStudentToEnroll) {
                 contextModel.studentRegistered = true;
             }
-            if (event.eventType() === COURSED_OPENED_EVENTNAME && event.id === idOfCourseToEnrollIn) {
+            if ( (event as any).eventType  === COURSED_OPENED_EVENTNAME && event.id === idOfCourseToEnrollIn) {
                 contextModel.courseOpened = true;
             }
-            if (event.eventType() === STUDENT_ENROLLED_IN_COURSE_EVENTNAME && event.id === idOfCourseToEnrollIn && event.data.studentId === idOfStudentToEnroll) {
+            if ((event as any).eventType   === STUDENT_ENROLLED_IN_COURSE_EVENTNAME && event.id === idOfCourseToEnrollIn && event.data.studentId === idOfStudentToEnroll) {
                 contextModel.studentAlreadyEnrolledInCourse = true;
             }
         }
@@ -114,7 +122,7 @@ async function main() {
         // Print result
         console.log(`All rules passed? ${allRulesPassed}`)
     } finally {
-        eventstore.close();
+        await eventstore.close();
     }
 }
 
