@@ -1,5 +1,4 @@
 import { buildCteInsertQuery } from '../insert';
-import { EventFilter } from '../../types';
 import { createFilter } from '../../filter';
 
 describe('Insert Query Builder', () => {

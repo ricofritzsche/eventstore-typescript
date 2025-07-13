@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { EventStore, EventFilter, HasEventType, QueryResult } from '../types';
-import { buildContextQuery, buildCteInsertQuery } from './index';
+import { buildCteInsertQuery } from './insert';
+import { buildContextQuery } from './query';
 import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform';
 import { 
   CREATE_EVENTS_TABLE, 

@@ -1,5 +1,4 @@
 import { buildContextQuery, buildContextVersionQuery } from '../query';
-import { EventFilter } from '../../types';
 import { createFilter } from '../../filter';
 
 describe('Query Builder', () => {
