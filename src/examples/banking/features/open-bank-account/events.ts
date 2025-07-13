@@ -1,6 +1,6 @@
-import { IHasEventType } from '../../../../eventstore/types';
+import { HasEventType } from '../../../../eventstore/types';
 
-export class BankAccountOpenedEvent implements IHasEventType {
+export class BankAccountOpenedEvent implements HasEventType {
   constructor(
     public readonly accountId: string,
     public readonly customerName: string,

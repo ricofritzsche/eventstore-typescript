@@ -1,3 +1,3 @@
-export { PostgresEventStore, IPostgresEventStoreOptions } from './postgres-eventstore';
-export { EventFilter } from './filter';
+export { PostgresEventStore, PostgresEventStoreOptions } from './postgres';
+export { createFilter } from './filter';
 export * from './types';

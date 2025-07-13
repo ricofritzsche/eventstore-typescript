@@ -1,11 +1,11 @@
-import { EventFilter } from '../../../../eventstore';
-import { IEventStore } from '../../../../eventstore/types';
+import { EventFilter, createFilter } from '../../../../eventstore';
+import { EventStore } from '../../../../eventstore/types';
 import { TransferMoneyCommand, TransferResult } from './types';
 import { processTransferCommand } from './core';
 import { MoneyTransferredEvent } from './events';
 
 export async function execute(
-  eventStore: IEventStore,
+  eventStore: EventStore,
   command: TransferMoneyCommand
 ): Promise<TransferResult> {
   const transferStateResult = await getTransferState(eventStore, command.fromAccountId, command.toAccountId);
@@ -36,7 +36,7 @@ export async function execute(
   }
 
   try {
-    const filter = EventFilter.fromPayloadPredicateOptions(
+    const filter = createFilter(
       ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
       [
         { accountId: command.fromAccountId },
@@ -67,7 +67,7 @@ export async function execute(
 }
 
 
-async function getTransferState(eventStore: IEventStore, fromAccountId: string, toAccountId: string): Promise<{
+async function getTransferState(eventStore: EventStore, fromAccountId: string, toAccountId: string): Promise<{
   state: {
     fromAccount: { balance: number; currency: string } | null;
     toAccount: { balance: number; currency: string } | null;
@@ -75,7 +75,7 @@ async function getTransferState(eventStore: IEventStore, fromAccountId: string, 
   };
   maxSequenceNumber: number;
 }> {
-  const filter = EventFilter.fromPayloadPredicateOptions(
+  const filter = createFilter(
     ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
     [
       { accountId: fromAccountId },

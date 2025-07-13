@@ -1,11 +1,11 @@
-import { EventFilter } from '../../../../eventstore';
-import { IEventStore } from '../../../../eventstore';
+import { EventFilter, createFilter } from '../../../../eventstore';
+import { EventStore } from '../../../../eventstore';
 import { DepositMoneyCommand, DepositResult } from './types';
 import { processDepositCommand } from './core';
 import { MoneyDepositedEvent } from './events';
 
 export async function execute(
-  eventStore: IEventStore,
+  eventStore: EventStore,
   command: DepositMoneyCommand
 ): Promise<DepositResult> {
   const depositStateResult = await getDepositState(eventStore, command.accountId);
@@ -29,8 +29,7 @@ export async function execute(
   }
 
   try {
-    const filter = EventFilter.fromEventTypesOnly(['BankAccountOpened', 'MoneyDeposited'])
-      .withPayloadPredicates([{ accountId: command.accountId }]);
+    const filter = createFilter(['BankAccountOpened', 'MoneyDeposited'], [{ accountId: command.accountId }]);
     
     const event = new MoneyDepositedEvent(
       result.event.accountId,
@@ -51,15 +50,14 @@ export async function execute(
   }
 }
 
-async function getDepositState(eventStore: IEventStore, accountId: string): Promise<{
+async function getDepositState(eventStore: EventStore, accountId: string): Promise<{
   state: {
     account: { currency: string } | null;
     existingDepositIds: string[];
   };
   maxSequenceNumber: number;
 }> {
-  const filter = EventFilter.fromEventTypesOnly(['BankAccountOpened', 'MoneyDeposited'])
-    .withPayloadPredicate("accountId", accountId);
+  const filter = createFilter(['BankAccountOpened', 'MoneyDeposited'], [{ accountId: accountId }]);
   
   const result = await eventStore.query<any>(filter);
   

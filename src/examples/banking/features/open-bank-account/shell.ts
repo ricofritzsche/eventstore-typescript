@@ -1,12 +1,12 @@
-import { EventFilter } from '../../../../eventstore';
-import { IEventStore } from '../../../../eventstore/types';
+import { EventFilter, createFilter } from '../../../../eventstore';
+import { EventStore } from '../../../../eventstore/types';
 import { OpenBankAccountCommand, OpenAccountResult } from './types';
 import { processOpenAccountCommand } from './core';
 import { BankAccountOpenedEvent } from './events';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function execute(
-  eventStore: IEventStore,
+  eventStore: EventStore,
   command: OpenBankAccountCommand
 ): Promise<OpenAccountResult> {
   const accountId = uuidv4();
@@ -20,7 +20,7 @@ export async function execute(
   }
 
   try {
-    const appendFilter = EventFilter.fromEventTypesOnly(['BankAccountOpened']);
+    const appendFilter = createFilter(['BankAccountOpened']);
     
     const event = new BankAccountOpenedEvent(
       result.event.accountId,
@@ -42,13 +42,13 @@ export async function execute(
   }
 }
 
-async function getOpenAccountState(eventStore: IEventStore, customerName: string): Promise<{
+async function getOpenAccountState(eventStore: EventStore, customerName: string): Promise<{
   state: {
     existingCustomerNames: string[];
   };
   maxSequenceNumber: number;
 }> {
-  const filter = EventFilter.fromEventTypesOnly(['BankAccountOpened']);
+  const filter = createFilter(['BankAccountOpened']);
   
   const result = await eventStore.query<any>(filter);
   

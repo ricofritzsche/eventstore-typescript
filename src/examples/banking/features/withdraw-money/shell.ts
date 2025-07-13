@@ -1,11 +1,11 @@
-import { EventFilter } from '../../../../eventstore';
-import { IEventStore } from '../../../../eventstore/types';
+import { EventFilter, createFilter } from '../../../../eventstore';
+import { EventStore } from '../../../../eventstore/types';
 import { WithdrawMoneyCommand, WithdrawResult } from './types';
 import { processWithdrawCommand } from './core';
 import { MoneyWithdrawnEvent } from './events';
 
 export async function execute(
-  eventStore: IEventStore,
+  eventStore: EventStore,
   command: WithdrawMoneyCommand
 ): Promise<WithdrawResult> {
   const withdrawStateResult = await getWithdrawState(eventStore, command.accountId);
@@ -31,7 +31,7 @@ export async function execute(
   try {
     // Use a filter that captures all events that affect the account balance
     // This matches the scope of events considered in getWithdrawState
-    const filter = EventFilter.fromPayloadPredicateOptions(
+    const filter = createFilter(
       ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
       [
         { accountId: command.accountId },
@@ -60,7 +60,7 @@ export async function execute(
 }
 
 
-async function getWithdrawState(eventStore: IEventStore, accountId: string): Promise<{
+async function getWithdrawState(eventStore: EventStore, accountId: string): Promise<{
   state: {
     account: { balance: number; currency: string } | null;
     existingWithdrawalIds: string[];
@@ -68,7 +68,7 @@ async function getWithdrawState(eventStore: IEventStore, accountId: string): Pro
   maxSequenceNumber: number;
 }> {
   // Single optimized query using payloadPredicateOptions for multiple account relationships
-  const filter = EventFilter.fromPayloadPredicateOptions(
+  const filter = createFilter(
     ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
     [
       { accountId: accountId },

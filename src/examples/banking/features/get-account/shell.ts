@@ -1,9 +1,9 @@
-import { EventFilter } from '../../../../eventstore';
-import { IEventStore } from '../../../../eventstore';
+import { EventFilter, createFilter } from '../../../../eventstore';
+import { EventStore } from '../../../../eventstore';
 import { GetAccountQuery, GetAccountResult, BankAccount } from './types';
 
 export async function execute(
-  eventStore: IEventStore,
+  eventStore: EventStore,
   query: GetAccountQuery
 ): Promise<GetAccountResult> {
   const accountViewStateResult = await getAccountViewState(eventStore, query.accountId);
@@ -11,14 +11,14 @@ export async function execute(
   return accountViewStateResult.state.account;
 }
 
-async function getAccountViewState(eventStore: IEventStore, accountId: string): Promise<{
+async function getAccountViewState(eventStore: EventStore, accountId: string): Promise<{
   state: {
     account: BankAccount | null;
   };
   maxSequenceNumber: number;
 }> {
   // Single optimized query using payloadPredicateOptions for multiple account relationships
-  const filter = EventFilter.fromPayloadPredicateOptions(
+  const filter = createFilter(
     ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
     [
       { accountId: accountId },
