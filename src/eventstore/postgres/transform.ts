@@ -1,18 +1,22 @@
 import { QueryResult } from 'pg';
-import { HasEventType } from '../types';
+import { PostgresEventRecord } from './types';
+import { EventRecord, Event } from '../types';
 
-export function deserializeEvent<T extends HasEventType>(row: any): T {
-  const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
-  return {
-    ...payload,
-    eventType: row.event_type,
-    sequenceNumber: row.sequence_number,
-    occurredAt: row.occurred_at
-  } as T;
+
+export function deserializeEvent(row: any): PostgresEventRecord {
+  return new PostgresEventRecord(
+    row.sequence_number,
+    row.occurred_at,
+    row.event_type,
+    row.event_version,
+    typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload,
+    JSON.parse(row.metadata)
+  );
 }
 
-export function mapRecordsToEvents<T extends HasEventType>(result: QueryResult<any>): T[] {
-  return result.rows.map(row => deserializeEvent<T>(row));
+
+export function mapRecordsToEvents(result: QueryResult<any>): EventRecord[] {
+  return result.rows.map(row => deserializeEvent(row));
 }
 
 export function extractMaxSequenceNumber(result: QueryResult<any>): number {
@@ -20,7 +24,8 @@ export function extractMaxSequenceNumber(result: QueryResult<any>): number {
   return lastRow ? parseInt(lastRow.sequence_number, 10) : 0;
 }
 
-export function prepareInsertParams<T extends HasEventType>(events: T[], contextParams: unknown[]): unknown[] {
+
+export function prepareInsertParams(events: Event[], contextParams: unknown[]): unknown[] {
   const eventTypes: string[] = [];
   const payloads: string[] = [];
   const metadata: string[] = [];

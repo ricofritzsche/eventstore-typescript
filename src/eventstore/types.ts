@@ -1,19 +1,29 @@
-export interface HasEventType {
+export interface Event{
   eventType(): string;
-  eventVersion?(): string;
+  eventVersion(): string;
+
+  payload(): Record<string, unknown>;
+  metadata(): Record<string, unknown>;
 }
+
+export interface EventRecord extends Event {
+  sequenceNumber(): number;
+  timestamp(): Date;
+}
+
 
 export interface EventFilter {
   readonly eventTypes: string[];
   readonly payloadPredicates?: Record<string, unknown>[];
 }
 
-export interface QueryResult<T extends HasEventType> {
-  events: T[];
+
+export interface QueryResult {
+  events: EventRecord[];
   maxSequenceNumber: number;
 }
 
 export interface EventStore {
-  query<T extends HasEventType>(filter: EventFilter): Promise<QueryResult<T>>;
-  append<T extends HasEventType>(filter: EventFilter, events: T[], expectedMaxSequence: number): Promise<void>;
+  query(filter: EventFilter): Promise<QueryResult>;
+  append(events: Event[], filter: EventFilter,  expectedMaxSequenceNumber: number): Promise<void>;
 }

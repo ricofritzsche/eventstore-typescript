@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { EventStore, EventFilter, HasEventType, QueryResult } from '../types';
+import { Event, EventStore, EventFilter, QueryResult } from '../types';
 import { buildCteInsertQuery } from './insert';
 import { buildContextQuery } from './query';
 import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform';
@@ -13,9 +13,11 @@ import {
   getDatabaseNameFromConnectionString
 } from './schema';
 
+
 export interface PostgresEventStoreOptions {
   connectionString?: string;
 }
+
 
 export class PostgresEventStore implements EventStore {
   private pool: Pool;
@@ -32,14 +34,15 @@ export class PostgresEventStore implements EventStore {
     this.pool = new Pool({ connectionString });
   }
 
-  async query<T extends HasEventType>(filter: EventFilter): Promise<QueryResult<T>> {
+
+  async query(filter: EventFilter): Promise<QueryResult> {
     const client = await this.pool.connect();
     try {
       const query = buildContextQuery(filter);
       const result = await client.query(query.sql, query.params);
 
       return { 
-        events: mapRecordsToEvents<T>(result), 
+        events: mapRecordsToEvents(result), 
         maxSequenceNumber: extractMaxSequenceNumber(result) 
       };
     } finally {
@@ -47,12 +50,13 @@ export class PostgresEventStore implements EventStore {
     }
   }
 
-  async append<T extends HasEventType>(filter: EventFilter, events: T[], expectedMaxSequence: number): Promise<void> {
+
+  async append(events: Event[], filter: EventFilter,  expectedMaxSequenceNumber: number): Promise<void> {
     if (events.length === 0) return;
 
     const client = await this.pool.connect();
     try {
-      const cteQuery = buildCteInsertQuery(filter, expectedMaxSequence);
+      const cteQuery = buildCteInsertQuery(filter, expectedMaxSequenceNumber);
       const params = prepareInsertParams(events, cteQuery.params);
 
       const result = await client.query(cteQuery.sql, params);
@@ -65,6 +69,7 @@ export class PostgresEventStore implements EventStore {
     }
   }
 
+
   async initializeDatabase(): Promise<void> {
     await this.createDatabase();
     await this.createTableAndIndexes();
@@ -74,6 +79,7 @@ export class PostgresEventStore implements EventStore {
     await this.pool.end();
   }
 
+  
   private async createDatabase(): Promise<void> {
     const adminConnectionString = changeDatabaseInConnectionString(
       process.env.DATABASE_URL!, 
