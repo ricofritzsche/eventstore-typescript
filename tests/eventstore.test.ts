@@ -1,25 +1,15 @@
-import { EventStore, EventFilter, PostgresEventStore, createFilter } from '../src/eventstore';
+import { PostgresEventStore, createFilter, Event, GenericEvent } from '../src/eventstore';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-/*
 
-class TestEvent implements HasEventType {
-  constructor(
-    public readonly id: string,
-    public readonly data: Record<string, unknown>,
-    public readonly timestamp: Date = new Date()
-  ) {}
-
-  eventType(): string {
-    return 'TestEvent';
-  }
-
-  eventVersion(): string {
-    return '1.0';
+class TestEvent extends GenericEvent {
+  constructor(id: string, data: Record<string, unknown>) {
+    super('TestEvent', '1.0', { id, ...data });
   }
 }
+
 
 describe('EventStore', () => {
   let eventStore: PostgresEventStore;
@@ -87,7 +77,7 @@ describe('EventStore', () => {
       const state = { exists: false };
       const events = decideAssetRegistration(state, '1', { test: 'data' });
       expect(events).toHaveLength(1);
-      expect(events[0]?.id).toBe('1');
+      expect((events[0]?.toStructure().payload as any).id).toBe('1');
     });
 
     it('should reject with existing state', () => {
@@ -97,5 +87,3 @@ describe('EventStore', () => {
     });
   });
 });
-
-*/

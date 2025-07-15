@@ -44,6 +44,7 @@ export class GenericEvent implements Event {
 export interface EventRecord extends Event {
   sequenceNumber(): number;
   timestamp(): Date;
+  toStructure(): Record<string, unknown>;
 }
 
 
