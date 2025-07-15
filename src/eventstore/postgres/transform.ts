@@ -27,20 +27,21 @@ export function extractMaxSequenceNumber(result: QueryResult<any>): number {
 
 export function prepareInsertParams(events: Event[], contextParams: unknown[]): unknown[] {
   const eventTypes: string[] = [];
+  const eventVersions: string[] = [];
   const payloads: string[] = [];
   const metadata: string[] = [];
 
   for (const event of events) {
     eventTypes.push(event.eventType());
-    payloads.push(JSON.stringify(event));
-    metadata.push(JSON.stringify({
-      version: event.eventVersion?.() || '1.0'
-    }));
+    eventVersions.push(event.eventVersion?.() || '1.0');
+    payloads.push(JSON.stringify(event.payload()));
+    metadata.push(JSON.stringify(event.metadata()));
   }
 
   return [
     ...contextParams,
     eventTypes,
+    eventVersions,
     payloads,
     metadata
   ];

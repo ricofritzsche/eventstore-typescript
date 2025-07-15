@@ -147,8 +147,9 @@ describe('Transform Functions', () => {
         'context1',
         'context2',
         ['UserCreated', 'UserUpdated'],
-        [JSON.stringify(events[0]), JSON.stringify(events[1])],
-        [JSON.stringify({ version: '1.0' }), JSON.stringify({ version: '2.0' })]
+        ["1.0", "2.0"],
+        [JSON.stringify(events[0]?.payload()), JSON.stringify(events[1]?.payload())],
+        [JSON.stringify({}), JSON.stringify({})]
       ]);
     });
 
@@ -162,8 +163,9 @@ describe('Transform Functions', () => {
 
       expect(result).toEqual([
         ['UserCreated'],
-        [JSON.stringify(events[0])],
-        [JSON.stringify({ version: '1.0' })]
+        ["1.0"],
+        [JSON.stringify(events[0]?.payload())],
+        [JSON.stringify({})]
       ]);
     });
 
@@ -175,6 +177,7 @@ describe('Transform Functions', () => {
 
       expect(result).toEqual([
         'context1',
+        [],
         [],
         [],
         []
