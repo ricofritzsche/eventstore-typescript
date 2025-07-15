@@ -36,13 +36,7 @@ async function main() {
 
         // The event to append
         const event1JohnRegistered = new VeryGenericEvent('1', { name: 'John' }, STUDENT_REGISTERED_EVENTNAME);
-
-        // A filter which never returns any events
-        const filterForEmptyContext = createFilter(["NON-EXISTENT-EVENT"]);
-        // Append the event: it's a conditional append, but the condition trivially is alwasy met.
-        // Since there never was a query preceding the append and there are no events matching the
-        // filter, the max. sequence number is 0.
-        await eventstore.append([event1JohnRegistered], filterForEmptyContext, 0);
+        await eventstore.append([event1JohnRegistered]);
 
         // Now let's check if the event was written.
         // A filter with just the event type will do
@@ -57,10 +51,10 @@ async function main() {
         We do that without any checks.
         */
         const event2CourseOpened = new VeryGenericEvent('99', { title: 'Event Sourcing 101' }, COURSED_OPENED_EVENTNAME);
-        await eventstore.append([event2CourseOpened], filterForEmptyContext, 0);
+        await eventstore.append([event2CourseOpened]);
 
         const event3RegisterJohnWithCourse = new VeryGenericEvent('99', { studentId: '1' }, STUDENT_ENROLLED_IN_COURSE_EVENTNAME);
-        await eventstore.append([event3RegisterJohnWithCourse], filterForEmptyContext, 0);
+        await eventstore.append([event3RegisterJohnWithCourse]);
 
         /*
         Now for the real fun: we want a conditional appened.

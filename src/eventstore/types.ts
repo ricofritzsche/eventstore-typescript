@@ -61,5 +61,5 @@ export interface QueryResult {
 
 export interface EventStore {
   query(filter: EventFilter): Promise<QueryResult>;
-  append(events: Event[], filter: EventFilter,  expectedMaxSequenceNumber: number): Promise<void>;
+  append(events: Event[], filter?: EventFilter,  expectedMaxSequenceNumber?: number): Promise<void>;
 }

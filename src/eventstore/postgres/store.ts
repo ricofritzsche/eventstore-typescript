@@ -12,6 +12,10 @@ import {
   changeDatabaseInConnectionString,
   getDatabaseNameFromConnectionString
 } from './schema';
+import { createFilter } from '../filter';
+
+
+const NON_EXISTENT_EVENT_TYPE = '__NON_EXISTENT__' + Math.random().toString(36);
 
 
 export interface PostgresEventStoreOptions {
@@ -51,8 +55,15 @@ export class PostgresEventStore implements EventStore {
   }
 
 
-  async append(events: Event[], filter: EventFilter,  expectedMaxSequenceNumber: number): Promise<void> {
+  async append(events: Event[], filter?: EventFilter,  expectedMaxSequenceNumber?: number): Promise<void> {
     if (events.length === 0) return;
+
+    if (filter === undefined || filter.eventTypes.length === 0) {
+      filter = createFilter([NON_EXISTENT_EVENT_TYPE]);
+      expectedMaxSequenceNumber = 0;
+    }
+    if (expectedMaxSequenceNumber === undefined)
+      throw new Error('Expected max sequence number is required when a filter is provided!')
 
     const client = await this.pool.connect();
     try {
@@ -79,7 +90,7 @@ export class PostgresEventStore implements EventStore {
     await this.pool.end();
   }
 
-  
+
   private async createDatabase(): Promise<void> {
     const adminConnectionString = changeDatabaseInConnectionString(
       process.env.DATABASE_URL!, 
