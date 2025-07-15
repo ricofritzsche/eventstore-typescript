@@ -1,4 +1,4 @@
-import { HasEventType, PostgresEventStore, createFilter } from '../eventstore';
+import { GenericEvent, Event, EventRecord, PostgresEventStore, createFilter } from '../eventstore';
 
 import dotenv from 'dotenv';
 dotenv.config();
@@ -13,23 +13,12 @@ const STUDENT_REGISTERED_EVENTNAME = "StudentRegistered_" + RUN_ID;
 const COURSED_OPENED_EVENTNAME = "CourseOpened_" + RUN_ID;
 const STUDENT_ENROLLED_IN_COURSE_EVENTNAME = "StudentEnrolledInCourse_" + RUN_ID;
 
-class VeryGenericEvent implements HasEventType {
-    constructor(
-      public readonly id: string,
-      public readonly data: Record<string, unknown>,
-      public readonly eventTypeName: string,
-      public readonly timestamp: Date = new Date()
-    ) {}
-  
-    eventType(): string {
-      return this.eventTypeName;
-    }
-  
-    eventVersion(): string {
-      return '1.0';
-    }
-  }
 
+class VeryGenericEvent extends GenericEvent {
+    constructor(id: string, data: Record<string, unknown>, eventType: string) {
+        super(eventType, '1.0', { id, ...data });
+    }
+}
 
 async function main() {
     const eventstore = new PostgresEventStore({ 
@@ -53,25 +42,25 @@ async function main() {
         // Append the event: it's a conditional append, but the condition trivially is alwasy met.
         // Since there never was a query preceding the append and there are no events matching the
         // filter, the max. sequence number is 0.
-        await eventstore.append<VeryGenericEvent>(filterForEmptyContext, [event1JohnRegistered], 0);
+        await eventstore.append([event1JohnRegistered], filterForEmptyContext, 0);
 
         // Now let's check if the event was written.
         // A filter with just the event type will do
         const filter1 = createFilter([STUDENT_REGISTERED_EVENTNAME]);
-        const context1 = await eventstore.query<VeryGenericEvent>(filter1);
+        const context1 = await eventstore.query(filter1);
         console.log(`Context max. seq. num: ${context1.maxSequenceNumber}`)
         console.log(`Number of events retrieved: ${context1.events.length}`)
-        console.log(`Name of first and only student retrieved: ${((context1.events[0] as VeryGenericEvent).data as any).name}`)
+        console.log(`Name of first and only student retrieved: ${(context1.events[0]?.payload() as any).name}`)
 
         /*
         Let's create a course and enroll student John in that course.
         We do that without any checks.
         */
         const event2CourseOpened = new VeryGenericEvent('99', { title: 'Event Sourcing 101' }, COURSED_OPENED_EVENTNAME);
-        await eventstore.append<VeryGenericEvent>(filterForEmptyContext, [event2CourseOpened], 0);
+        await eventstore.append([event2CourseOpened], filterForEmptyContext, 0);
 
         const event3RegisterJohnWithCourse = new VeryGenericEvent('99', { studentId: '1' }, STUDENT_ENROLLED_IN_COURSE_EVENTNAME);
-        await eventstore.append<VeryGenericEvent>(filterForEmptyContext, [event3RegisterJohnWithCourse], 0);
+        await eventstore.append([event3RegisterJohnWithCourse], filterForEmptyContext, 0);
 
         /*
         Now for the real fun: we want a conditional appened.
@@ -89,7 +78,7 @@ async function main() {
         const contextFilter = createFilter([
             STUDENT_REGISTERED_EVENTNAME, COURSED_OPENED_EVENTNAME, STUDENT_ENROLLED_IN_COURSE_EVENTNAME
         ], [{ id: idOfStudentToEnroll }, { id: idOfCourseToEnrollIn}, { data: { studentId: idOfStudentToEnroll}}]);
-        const context = await eventstore.query<VeryGenericEvent>(contextFilter);
+        const context = await eventstore.query(contextFilter);
         console.log(`Context max. seq. num: ${context.maxSequenceNumber}`)
         console.log(`Number of events retrieved: ${context.events.length}`)
         for (const event of context.events) {
@@ -102,16 +91,20 @@ async function main() {
             console.log(`Event structure: ${JSON.stringify(event, null, 2)}`);
             console.log(`Event keys: ${Object.keys(event)}`);
             console.log(`Event type check - has eventType method: ${typeof event.eventType === 'function'}`);
-            console.log(`Event eventTypeName property: ${(event as any).eventTypeName}`);
+            console.log(`Event eventTypeName property: ${event.eventType()}`);
             console.log('---');
             
-            if ((event as any).eventType  === STUDENT_REGISTERED_EVENTNAME && event.id === idOfStudentToEnroll) {
+            if ((event as any).eventType  === STUDENT_REGISTERED_EVENTNAME 
+                 && (event.payload() as any).id === idOfStudentToEnroll) {
                 contextModel.studentRegistered = true;
             }
-            if ( (event as any).eventType  === COURSED_OPENED_EVENTNAME && event.id === idOfCourseToEnrollIn) {
+            if ( (event as any).eventType  === COURSED_OPENED_EVENTNAME 
+                 && (event.payload() as any).id === idOfCourseToEnrollIn) {
                 contextModel.courseOpened = true;
             }
-            if ((event as any).eventType   === STUDENT_ENROLLED_IN_COURSE_EVENTNAME && event.id === idOfCourseToEnrollIn && event.data.studentId === idOfStudentToEnroll) {
+            if ((event as any).eventType   === STUDENT_ENROLLED_IN_COURSE_EVENTNAME 
+                 && (event.payload() as any).id === idOfCourseToEnrollIn 
+                 && (event.payload() as any).data.studentId === idOfStudentToEnroll) {
                 contextModel.studentAlreadyEnrolledInCourse = true;
             }
         }
