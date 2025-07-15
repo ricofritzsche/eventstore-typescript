@@ -10,7 +10,7 @@ export function deserializeEvent(row: any): PostgresEventRecord {
     row.event_type,
     row.event_version,
     typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload,
-    JSON.parse(row.metadata)
+    typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata,
   );
 }
 

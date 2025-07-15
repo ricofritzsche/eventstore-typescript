@@ -5,51 +5,51 @@ import {
   extractMaxSequenceNumber, 
   prepareInsertParams 
 } from '../transform';
-import { HasEventType } from '../../types';
+import { Event, GenericEvent } from '../../types';
 
-interface TestEvent extends HasEventType {
-  eventType(): string;
-  eventVersion?(): string;
-  data: string;
-}
 
 describe('Transform Functions', () => {
   describe('deserializeEvent', () => {
     it('should deserialize event from database row', () => {
       const row = {
         event_type: 'UserCreated',
+        event_version: '1.0',
         sequence_number: '123',
         occurred_at: '2023-01-01T00:00:00Z',
         payload: JSON.stringify({ data: 'test', userId: '456' })
       };
 
-      const result = deserializeEvent<TestEvent>(row);
+      const result = deserializeEvent(row);
 
-      expect(result).toEqual({
-        data: 'test',
-        userId: '456',
+      expect(result.toStructure()).toEqual({
+        payload: { data: 'test', userId: '456' },
+        metadata: {},
         eventType: 'UserCreated',
+        eventVersion: '1.0',
         sequenceNumber: '123',
-        occurredAt: '2023-01-01T00:00:00Z'
+        timestamp: '2023-01-01T00:00:00Z'
       });
     });
 
     it('should handle already parsed JSON payload', () => {
       const row = {
         event_type: 'UserCreated',
+        event_version: '1.0',
         sequence_number: '123',
         occurred_at: '2023-01-01T00:00:00Z',
-        payload: { data: 'test', userId: '456' }
+        payload: { data: 'test', userId: '456' },
+        metadata: {}
       };
 
-      const result = deserializeEvent<TestEvent>(row);
+      const result = deserializeEvent(row);
 
-      expect(result).toEqual({
-        data: 'test',
-        userId: '456',
+      expect(result.toStructure()).toEqual({
+        payload: { data: 'test', userId: '456' },
+        metadata: {},
         eventType: 'UserCreated',
+        eventVersion: '1.0',
         sequenceNumber: '123',
-        occurredAt: '2023-01-01T00:00:00Z'
+        timestamp: '2023-01-01T00:00:00Z'
       });
     });
   });
@@ -77,11 +77,11 @@ describe('Transform Functions', () => {
         fields: []
       } as QueryResult<any>;
 
-      const result = mapRecordsToEvents<TestEvent>(queryResult);
+      const result = mapRecordsToEvents(queryResult);
 
       expect(result).toHaveLength(2);
-      expect(result[0]!.data).toBe('first');
-      expect(result[1]!.data).toBe('second');
+      expect(result[0]!.payload().data).toBe('first');
+      expect(result[1]!.payload().data).toBe('second');
     });
 
     it('should handle empty result set', () => {
@@ -93,7 +93,7 @@ describe('Transform Functions', () => {
         fields: []
       } as QueryResult<any>;
 
-      const result = mapRecordsToEvents<TestEvent>(queryResult);
+      const result = mapRecordsToEvents(queryResult);
 
       expect(result).toEqual([]);
     });
@@ -135,16 +135,9 @@ describe('Transform Functions', () => {
 
   describe('prepareInsertParams', () => {
     it('should prepare parameters for insert query', () => {
-      const events: TestEvent[] = [
-        {
-          eventType: () => 'UserCreated',
-          eventVersion: () => '2.0',
-          data: 'test1'
-        },
-        {
-          eventType: () => 'UserUpdated',
-          data: 'test2'
-        }
+      const events: Event[] = [
+        new GenericEvent('UserCreated', '1.0', { data: 'test1' }),
+        new GenericEvent('UserUpdated', '2.0', { data: 'test2' })
       ];
       const contextParams = ['context1', 'context2'];
 
@@ -155,16 +148,13 @@ describe('Transform Functions', () => {
         'context2',
         ['UserCreated', 'UserUpdated'],
         [JSON.stringify(events[0]), JSON.stringify(events[1])],
-        [JSON.stringify({ version: '2.0' }), JSON.stringify({ version: '1.0' })]
+        [JSON.stringify({ version: '1.0' }), JSON.stringify({ version: '2.0' })]
       ]);
     });
 
     it('should handle events without eventVersion', () => {
-      const events: TestEvent[] = [
-        {
-          eventType: () => 'UserCreated',
-          data: 'test'
-        }
+      const events: Event[] = [
+        new GenericEvent('UserCreated', "1.0", { data: 'test1' })
       ];
       const contextParams: unknown[] = [];
 
@@ -178,7 +168,7 @@ describe('Transform Functions', () => {
     });
 
     it('should handle empty events array', () => {
-      const events: TestEvent[] = [];
+      const events: Event[] = [];
       const contextParams = ['context1'];
 
       const result = prepareInsertParams(events, contextParams);
