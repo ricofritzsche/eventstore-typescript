@@ -1,17 +1,14 @@
 import { QueryResult } from 'pg';
-import { PostgresEventRecord } from './types';
 import { EventRecord, Event } from '../types';
 
 
-export function deserializeEvent(row: any): PostgresEventRecord {
-  return new PostgresEventRecord(
-    row.sequence_number,
-    row.occurred_at,
-    row.event_type,
-    row.event_version,
-    typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload,
-    typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata,
-  );
+export function deserializeEvent(row: any): EventRecord {
+  return {
+    sequenceNumber: row.sequence_number,
+    timestamp: row.occurred_at,
+    eventType: row.event_type,
+    payload: typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload,
+  };
 }
 
 
@@ -32,17 +29,13 @@ export function prepareInsertParams(events: Event[], contextParams: unknown[]): 
   const metadata: string[] = [];
 
   for (const event of events) {
-    eventTypes.push(event.eventType());
-    eventVersions.push(event.eventVersion?.() || '1.0');
-    payloads.push(JSON.stringify(event.payload()));
-    metadata.push(JSON.stringify(event.metadata()));
+    eventTypes.push(event.eventType);
+    payloads.push(JSON.stringify(event.payload));
   }
 
   return [
     ...contextParams,
     eventTypes,
-    eventVersions,
     payloads,
-    metadata
   ];
 }

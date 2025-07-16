@@ -63,7 +63,6 @@ describe('Schema Functions', () => {
       expect(CREATE_EVENTS_TABLE).toContain('CREATE TABLE IF NOT EXISTS events');
       expect(CREATE_EVENTS_TABLE).toContain('sequence_number BIGSERIAL PRIMARY KEY');
       expect(CREATE_EVENTS_TABLE).toContain('event_type TEXT NOT NULL');
-      expect(CREATE_EVENTS_TABLE).toContain('event_version TEXT NOT NULL');
       expect(CREATE_EVENTS_TABLE).toContain('payload JSONB NOT NULL');
     });
 

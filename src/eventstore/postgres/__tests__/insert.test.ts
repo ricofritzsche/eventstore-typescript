@@ -15,8 +15,8 @@ describe('Insert Query Builder', () => {
       FROM events
       WHERE event_type = ANY($1)
     )
-    INSERT INTO events (event_type, event_version, payload, metadata)
-    SELECT unnest($2::text[]), unnest($3::text[]), unnest($4::jsonb[]), unnest($5::jsonb[])
+    INSERT INTO events (event_type, payload)
+    SELECT unnest($2::text[]), unnest($3::jsonb[])
     FROM context
     WHERE COALESCE(max_seq, 0) = 5
   `.trim());

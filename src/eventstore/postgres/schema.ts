@@ -3,9 +3,7 @@ export const CREATE_EVENTS_TABLE = `
     sequence_number BIGSERIAL PRIMARY KEY,
     occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     event_type TEXT NOT NULL,
-    event_version TEXT NOT NULL DEFAULT '1.0',
-    payload JSONB NOT NULL,
-    metadata JSONB NOT NULL DEFAULT '{}'
+    payload JSONB NOT NULL
   )
 `;
 

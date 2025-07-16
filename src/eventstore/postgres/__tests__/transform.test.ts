@@ -21,11 +21,9 @@ describe('Transform Functions', () => {
 
       const result = deserializeEvent(row);
 
-      expect(result.toStructure()).toEqual({
+      expect(result).toEqual({
         payload: { data: 'test', userId: '456' },
-        metadata: {},
         eventType: 'UserCreated',
-        eventVersion: '1.0',
         sequenceNumber: '123',
         timestamp: '2023-01-01T00:00:00Z'
       });
@@ -34,20 +32,16 @@ describe('Transform Functions', () => {
     it('should handle already parsed JSON payload', () => {
       const row = {
         event_type: 'UserCreated',
-        event_version: '1.0',
         sequence_number: '123',
         occurred_at: '2023-01-01T00:00:00Z',
-        payload: { data: 'test', userId: '456' },
-        metadata: {}
+        payload: { data: 'test', userId: '456' }
       };
 
       const result = deserializeEvent(row);
 
-      expect(result.toStructure()).toEqual({
+      expect(result).toEqual({
         payload: { data: 'test', userId: '456' },
-        metadata: {},
         eventType: 'UserCreated',
-        eventVersion: '1.0',
         sequenceNumber: '123',
         timestamp: '2023-01-01T00:00:00Z'
       });
@@ -80,8 +74,8 @@ describe('Transform Functions', () => {
       const result = mapRecordsToEvents(queryResult);
 
       expect(result).toHaveLength(2);
-      expect(result[0]!.payload().data).toBe('first');
-      expect(result[1]!.payload().data).toBe('second');
+      expect(result[0]!.payload.data).toBe('first');
+      expect(result[1]!.payload.data).toBe('second');
     });
 
     it('should handle empty result set', () => {
@@ -136,8 +130,8 @@ describe('Transform Functions', () => {
   describe('prepareInsertParams', () => {
     it('should prepare parameters for insert query', () => {
       const events: Event[] = [
-        new GenericEvent('UserCreated', '1.0', { data: 'test1' }),
-        new GenericEvent('UserUpdated', '2.0', { data: 'test2' })
+        new GenericEvent('UserCreated', { data: 'test1' }),
+        new GenericEvent('UserUpdated', { data: 'test2' })
       ];
       const contextParams = ['context1', 'context2'];
 
@@ -148,14 +142,14 @@ describe('Transform Functions', () => {
         'context2',
         ['UserCreated', 'UserUpdated'],
         ["1.0", "2.0"],
-        [JSON.stringify(events[0]?.payload()), JSON.stringify(events[1]?.payload())],
+        [JSON.stringify(events[0]?.payload), JSON.stringify(events[1]?.payload)],
         [JSON.stringify({}), JSON.stringify({})]
       ]);
     });
 
     it('should handle events without eventVersion', () => {
       const events: Event[] = [
-        new GenericEvent('UserCreated', "1.0", { data: 'test1' })
+        new GenericEvent('UserCreated', { data: 'test1' })
       ];
       const contextParams: unknown[] = [];
 
@@ -164,7 +158,7 @@ describe('Transform Functions', () => {
       expect(result).toEqual([
         ['UserCreated'],
         ["1.0"],
-        [JSON.stringify(events[0]?.payload())],
+        [JSON.stringify(events[0]?.payload)],
         [JSON.stringify({})]
       ]);
     });
