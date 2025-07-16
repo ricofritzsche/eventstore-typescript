@@ -3,6 +3,10 @@ export interface Event{
   readonly payload: Record<string, unknown>;
 }
 
+export interface EventRecord extends Event {
+  readonly sequenceNumber: number;
+  readonly timestamp: Date;
+}
 
 export class GenericEvent implements Event {
     constructor(
@@ -10,13 +14,6 @@ export class GenericEvent implements Event {
         public readonly payload: Record<string, unknown>
     ) {}
 }
-
-
-export interface EventRecord extends Event {
-  readonly sequenceNumber: number;
-  readonly timestamp: Date;
-}
-
 
 export interface EventFilter {
   readonly eventTypes: string[];
