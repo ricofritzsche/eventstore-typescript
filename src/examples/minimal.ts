@@ -71,7 +71,7 @@ async function main() {
         // Query event store for context
         const contextFilter = createFilter([
             STUDENT_REGISTERED_EVENTNAME, COURSED_OPENED_EVENTNAME, STUDENT_ENROLLED_IN_COURSE_EVENTNAME
-        ], [{ id: idOfStudentToEnroll }, { id: idOfCourseToEnrollIn}, { data: { studentId: idOfStudentToEnroll}}]);
+        ], [{ id: idOfStudentToEnroll }, { id: idOfCourseToEnrollIn}, { studentId: idOfStudentToEnroll}]);
         const context = await eventstore.query(contextFilter);
         console.log(`Context max. seq. num: ${context.maxSequenceNumber}`)
         console.log(`Number of events retrieved: ${context.events.length}`)
@@ -98,7 +98,7 @@ async function main() {
             }
             if ((event as any).eventType   === STUDENT_ENROLLED_IN_COURSE_EVENTNAME 
                  && (event.payload as any).id === idOfCourseToEnrollIn 
-                 && (event.payload as any).data.studentId === idOfStudentToEnroll) {
+                 && (event.payload as any).studentId === idOfStudentToEnroll) {
                 contextModel.studentAlreadyEnrolledInCourse = true;
             }
         }
