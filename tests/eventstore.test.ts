@@ -6,7 +6,7 @@ dotenv.config();
 
 class TestEvent extends GenericEvent {
   constructor(id: string, data: Record<string, unknown>) {
-    super('TestEvent', '1.0', { id, ...data });
+    super('TestEvent', { id, ...data });
   }
 }
 
@@ -77,7 +77,7 @@ describe('EventStore', () => {
       const state = { exists: false };
       const events = decideAssetRegistration(state, '1', { test: 'data' });
       expect(events).toHaveLength(1);
-      expect((events[0]?.toStructure().payload as any).id).toBe('1');
+      expect((events[0]?.payload as any).id).toBe('1');
     });
 
     it('should reject with existing state', () => {

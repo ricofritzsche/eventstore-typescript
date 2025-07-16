@@ -16,7 +16,7 @@ const STUDENT_ENROLLED_IN_COURSE_EVENTNAME = "StudentEnrolledInCourse_" + RUN_ID
 
 class VeryGenericEvent extends GenericEvent {
     constructor(id: string, data: Record<string, unknown>, eventType: string) {
-        super(eventType, '1.0', { id, ...data });
+        super(eventType, { id, ...data });
     }
 }
 
@@ -44,7 +44,7 @@ async function main() {
         const context1 = await eventstore.query(filter1);
         console.log(`Context max. seq. num: ${context1.maxSequenceNumber}`)
         console.log(`Number of events retrieved: ${context1.events.length}`)
-        console.log(`Name of first and only student retrieved: ${(context1.events[0]?.payload() as any).name}`)
+        console.log(`Name of first and only student retrieved: ${(context1.events[0]?.payload as any).name}`)
 
         /*
         Let's create a course and enroll student John in that course.
@@ -85,20 +85,20 @@ async function main() {
             console.log(`Event structure: ${JSON.stringify(event, null, 2)}`);
             console.log(`Event keys: ${Object.keys(event)}`);
             console.log(`Event type check - has eventType method: ${typeof event.eventType === 'function'}`);
-            console.log(`Event eventTypeName property: ${event.eventType()}`);
+            console.log(`Event eventTypeName property: ${event.eventType}`);
             console.log('---');
             
             if ((event as any).eventType  === STUDENT_REGISTERED_EVENTNAME 
-                 && (event.payload() as any).id === idOfStudentToEnroll) {
+                 && (event.payload as any).id === idOfStudentToEnroll) {
                 contextModel.studentRegistered = true;
             }
             if ( (event as any).eventType  === COURSED_OPENED_EVENTNAME 
-                 && (event.payload() as any).id === idOfCourseToEnrollIn) {
+                 && (event.payload as any).id === idOfCourseToEnrollIn) {
                 contextModel.courseOpened = true;
             }
             if ((event as any).eventType   === STUDENT_ENROLLED_IN_COURSE_EVENTNAME 
-                 && (event.payload() as any).id === idOfCourseToEnrollIn 
-                 && (event.payload() as any).data.studentId === idOfStudentToEnroll) {
+                 && (event.payload as any).id === idOfCourseToEnrollIn 
+                 && (event.payload as any).data.studentId === idOfStudentToEnroll) {
                 contextModel.studentAlreadyEnrolledInCourse = true;
             }
         }

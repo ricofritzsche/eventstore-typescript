@@ -6,7 +6,7 @@ dotenv.config();
 
 class TestEvent extends GenericEvent {
   constructor(eventType: string, id: string, data: Record<string, unknown>) {
-    super(eventType, '1.0', { id,...data });
+    super(eventType, { id,...data });
   }
 }
 
@@ -46,7 +46,7 @@ describe('Optimistic Locking CTE Condition', () => {
     const afterInsert = await eventStore.query(filter);
     expect(afterInsert.events).toHaveLength(1);
     expect(afterInsert.maxSequenceNumber).toBeGreaterThan(0);
-    expect((afterInsert.events[0]?.toStructure().payload as any).id).toBe('test-1');
+    expect((afterInsert.events[0]?.payload as any).id).toBe('test-1');
   });
 
 
@@ -105,7 +105,7 @@ describe('Optimistic Locking CTE Condition', () => {
     // Verify only the first event was inserted
     const finalResult = await eventStore.query(filter);
     expect(finalResult.events).toHaveLength(1);
-    expect((finalResult.events[0]?.toStructure().payload as any).id).toBe('concurrent-3.a.1');
+    expect((finalResult.events[0]?.payload as any).id).toBe('concurrent-3.a.1');
     expect(finalResult.maxSequenceNumber).toBeGreaterThan(0);
   });
 
@@ -118,7 +118,7 @@ describe('Optimistic Locking CTE Condition', () => {
 
     // Insert event for different account (should not affect our context)
     const otherFilter = createFilter([eventType], [{ accountId: 'other-account' }]);
-    const otherEvent =new GenericEvent(eventType, '1.0',  
+    const otherEvent =new GenericEvent(eventType,  
       {
         id: 'test-4.1',
         accountId: 'other-account', // Top level property
@@ -133,7 +133,7 @@ describe('Optimistic Locking CTE Condition', () => {
     expect(result.maxSequenceNumber).toBe(0); // Should still be 0 for our context
     
     // Create event with accountId at the top level (not nested in data)
-    const event = new GenericEvent(eventType, '1.0',
+    const event = new GenericEvent(eventType,
       {
         id: 'test-4.2',
         accountId, // Top level property for payload predicate matching
@@ -145,7 +145,7 @@ describe('Optimistic Locking CTE Condition', () => {
     // Verify our event was inserted
     const afterInsert = await eventStore.query(filter);
     expect(afterInsert.events).toHaveLength(1);
-    expect((afterInsert.events[0]?.toStructure().payload as any).id).toBe('test-4.2');
+    expect((afterInsert.events[0]?.payload as any).id).toBe('test-4.2');
     expect(afterInsert.maxSequenceNumber).toBeGreaterThan(0);
   });
 
@@ -158,7 +158,7 @@ describe('Optimistic Locking CTE Condition', () => {
     ]);
     
     // Insert event for account-1
-    const event1 = new GenericEvent(eventType, '1.0',  {
+    const event1 = new GenericEvent(eventType, {
       id: 'test-5.1',
       accountId: 'account-1', // Top level property
       value: 'first'}
@@ -172,7 +172,7 @@ describe('Optimistic Locking CTE Condition', () => {
     expect(currentSequence).toBeGreaterThan(0);
     
     // Insert event for account-2 with correct sequence
-    const event2 = new GenericEvent(eventType, '1.0',
+    const event2 = new GenericEvent(eventType,
       {
         id: 'test-5.2',
         accountId: 'account-2', // Top level property
@@ -187,7 +187,7 @@ describe('Optimistic Locking CTE Condition', () => {
     expect(currentSequence2).toBeGreaterThan(currentSequence);
     
     // Try to insert with outdated sequence (should fail)
-    const event3 = new GenericEvent(eventType, '1.0',{
+    const event3 = new GenericEvent(eventType, {
       id: 'test-5.3',
       accountId: 'account-1', // Top level property
       value: 'third'}
