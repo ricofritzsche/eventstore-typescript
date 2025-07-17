@@ -5,7 +5,7 @@ import {
   extractMaxSequenceNumber, 
   prepareInsertParams 
 } from '../transform';
-import { Event, GenericEvent } from '../../types';
+import { Event } from '../../types';
 
 
 describe('Transform Functions', () => {
@@ -69,7 +69,7 @@ describe('Transform Functions', () => {
         rowCount: 2,
         oid: 0,
         fields: []
-      } as QueryResult<any>;
+      } as QueryResult;
 
       const result = mapRecordsToEvents(queryResult);
 
@@ -85,7 +85,7 @@ describe('Transform Functions', () => {
         rowCount: 0,
         oid: 0,
         fields: []
-      } as QueryResult<any>;
+      } as QueryResult;
 
       const result = mapRecordsToEvents(queryResult);
 
@@ -130,8 +130,8 @@ describe('Transform Functions', () => {
   describe('prepareInsertParams', () => {
     it('should prepare parameters for insert query', () => {
       const events: Event[] = [
-        new GenericEvent('UserCreated', { data: 'test1' }),
-        new GenericEvent('UserUpdated', { data: 'test2' })
+        { eventType: 'UserCreated', payload: { data: 'test1' } },
+        { eventType: 'UserUpdated', payload: { data: 'test2' } }
       ];
       const contextParams = ['context1', 'context2'];
 
@@ -147,7 +147,7 @@ describe('Transform Functions', () => {
 
     it('should handle events without eventVersion', () => {
       const events: Event[] = [
-        new GenericEvent('UserCreated', { data: 'test1' })
+        { eventType: 'UserCreated', payload: { data: 'test1' } }
       ];
       const contextParams: unknown[] = [];
 

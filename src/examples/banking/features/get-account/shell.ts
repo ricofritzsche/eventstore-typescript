@@ -27,11 +27,11 @@ async function getAccountViewState(eventStore: EventStore, accountId: string): P
     ]
   );
   
-  const result = await eventStore.query<any>(filter);
+  const result = await eventStore.query(filter);
   const allEvents = result.events;
   
   const openingEvent = allEvents.find(e => 
-    (e.event_type || (e.eventType && e.eventType())) === 'BankAccountOpened'
+    e.eventType === 'BankAccountOpened'
   );
   
   if (!openingEvent) {
@@ -41,20 +41,20 @@ async function getAccountViewState(eventStore: EventStore, accountId: string): P
     };
   }
 
-  let currentBalance = openingEvent.initialDeposit;
+  let currentBalance = openingEvent.payload.initialDeposit as number;
 
   for (const event of allEvents) {
-    const eventType = event.event_type || (event.eventType && event.eventType());
+    const eventType = event.eventType;
     
-    if (eventType === 'MoneyDeposited' && event.currency === openingEvent.currency) {
-      currentBalance += event.amount;
-    } else if (eventType === 'MoneyWithdrawn' && event.currency === openingEvent.currency) {
-      currentBalance -= event.amount;
-    } else if (eventType === 'MoneyTransferred' && event.currency === openingEvent.currency) {
-      if (event.fromAccountId === accountId) {
-        currentBalance -= event.amount;
-      } else if (event.toAccountId === accountId) {
-        currentBalance += event.amount;
+    if (eventType === 'MoneyDeposited' && event.payload.currency === openingEvent.payload.currency) {
+      currentBalance += event.payload.amount as number;
+    } else if (eventType === 'MoneyWithdrawn' && event.payload.currency === openingEvent.payload.currency) {
+      currentBalance -= event.payload.amount as number;
+    } else if (eventType === 'MoneyTransferred' && event.payload.currency === openingEvent.payload.currency) {
+      if (event.payload.fromAccountId === accountId) {
+        currentBalance -= event.payload.amount as number;
+      } else if (event.payload.toAccountId === accountId) {
+        currentBalance += event.payload.amount as number;
       }
     }
   }
@@ -64,12 +64,12 @@ async function getAccountViewState(eventStore: EventStore, accountId: string): P
   return {
     state: {
       account: {
-        accountId: openingEvent.accountId,
-        customerName: openingEvent.customerName,
-        accountType: openingEvent.accountType,
+        accountId: openingEvent.payload.accountId as string,
+        customerName: openingEvent.payload.customerName as string,
+        accountType: openingEvent.payload.accountType as 'checking' | 'savings',
         balance: currentBalance,
-        currency: openingEvent.currency,
-        openedAt: openingEvent.openedAt
+        currency: openingEvent.payload.currency as string,
+        openedAt: openingEvent.payload.openedAt as Date
       }
     },
     maxSequenceNumber

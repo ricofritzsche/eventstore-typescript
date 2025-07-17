@@ -48,7 +48,7 @@ export async function execute(
       result.event.timestamp
     );
     
-    await eventStore.append(filter, [event], withdrawStateResult.maxSequenceNumber);
+    await eventStore.append([event], filter, withdrawStateResult.maxSequenceNumber);
     
     return result;
   } catch (error) {
@@ -77,12 +77,12 @@ async function getWithdrawState(eventStore: EventStore, accountId: string): Prom
     ]
   );
   
-  const result = await eventStore.query<any>(filter);
+  const result = await eventStore.query(filter);
   const allEvents = result.events;
   const account = buildAccountState(allEvents, accountId);
   const existingWithdrawalIds = allEvents
-    .filter(e => (e.event_type || (e.eventType && e.eventType())) === 'MoneyWithdrawn')
-    .map(e => e.withdrawalId);
+    .filter(e => e.eventType === 'MoneyWithdrawn')
+    .map(e => e.payload.withdrawalId as string);
 
   const maxSequenceNumber = result.maxSequenceNumber;
 
@@ -97,33 +97,33 @@ async function getWithdrawState(eventStore: EventStore, accountId: string): Prom
 
 function buildAccountState(events: any[], accountId: string): { balance: number; currency: string } | null {
   const openingEvent = events.find(e => 
-    (e.event_type || (e.eventType && e.eventType())) === 'BankAccountOpened' && e.accountId === accountId
+    e.eventType === 'BankAccountOpened' && e.payload.accountId === accountId
   );
   
   if (!openingEvent) {
     return null;
   }
 
-  let currentBalance = openingEvent.initialDeposit;
+  let currentBalance = openingEvent.payload.initialDeposit as number;
 
   for (const event of events) {
-    const eventType = event.event_type || (event.eventType && event.eventType());
+    const eventType = event.eventType;
     
-    if (eventType === 'MoneyDeposited' && event.accountId === accountId && event.currency === openingEvent.currency) {
-      currentBalance += event.amount;
-    } else if (eventType === 'MoneyWithdrawn' && event.accountId === accountId && event.currency === openingEvent.currency) {
-      currentBalance -= event.amount;
-    } else if (eventType === 'MoneyTransferred' && event.currency === openingEvent.currency) {
-      if (event.fromAccountId === accountId) {
-        currentBalance -= event.amount;
-      } else if (event.toAccountId === accountId) {
-        currentBalance += event.amount;
+    if (eventType === 'MoneyDeposited' && event.payload.accountId === accountId && event.payload.currency === openingEvent.payload.currency) {
+      currentBalance += event.payload.amount as number;
+    } else if (eventType === 'MoneyWithdrawn' && event.payload.accountId === accountId && event.payload.currency === openingEvent.payload.currency) {
+      currentBalance -= event.payload.amount as number;
+    } else if (eventType === 'MoneyTransferred' && event.payload.currency === openingEvent.payload.currency) {
+      if (event.payload.fromAccountId === accountId) {
+        currentBalance -= event.payload.amount as number;
+      } else if (event.payload.toAccountId === accountId) {
+        currentBalance += event.payload.amount as number;
       }
     }
   }
 
   return {
     balance: currentBalance,
-    currency: openingEvent.currency
+    currency: openingEvent.payload.currency as string
   };
 }

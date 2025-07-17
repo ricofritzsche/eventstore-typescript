@@ -8,30 +8,17 @@ export interface EventRecord extends Event {
   readonly timestamp: Date;
 }
 
-export class GenericEvent implements Event {
-    constructor(
-        public readonly eventType: string,
-        public readonly payload: Record<string, unknown>
-    ) {}
-}
-
 export interface EventFilter {
   readonly eventTypes: string[];
   readonly payloadPredicates?: Record<string, unknown>[];
 }
-
 
 export interface QueryResult {
   events: EventRecord[];
   maxSequenceNumber: number;
 }
 
-export interface Subscription {
-  unsubscribe(): void;
-}
-
 export interface EventStore {
   query(filter: EventFilter): Promise<QueryResult>;
   append(events: Event[], filter?: EventFilter,  expectedMaxSequenceNumber?: number): Promise<void>;
-  subscribe(listener: (events: Event[]) => Promise<void>): Subscription;
 }

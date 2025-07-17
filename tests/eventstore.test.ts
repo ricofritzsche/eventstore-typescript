@@ -1,15 +1,16 @@
-import { PostgresEventStore, createFilter, Event, GenericEvent } from '../src/eventstore';
+import { PostgresEventStore, createFilter, Event } from '../src/eventstore';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+class TestEvent implements Event {
+  public readonly eventType: string = 'TestEvent';
+  public readonly payload: Record<string, unknown>;
 
-class TestEvent extends GenericEvent {
   constructor(id: string, data: Record<string, unknown>) {
-    super('TestEvent', { id, ...data });
+    this.payload = { id, ...data };
   }
 }
-
 
 describe('EventStore', () => {
   let eventStore: PostgresEventStore;
@@ -25,28 +26,6 @@ describe('EventStore', () => {
   afterEach(async () => {
     await eventStore.close();
   });
-
-
-  it('subscribers should get notified', async () => {
-    let eventsReceived:Event[] = [];
-    const subscription = eventStore.subscribe(async (events) => {
-      eventsReceived = events;
-    });
-
-    await eventStore.append([{ eventType: 'ATestEvent', payload: { data: 'test1' } }, { eventType: 'AnotherTestEvent', payload: { data: 'test2' } }]);
-
-    expect(eventsReceived).toHaveLength(2);
-    expect(eventsReceived[0]?.eventType).toBe('ATestEvent');
-    expect(eventsReceived[1]?.eventType).toBe('AnotherTestEvent');
-    expect(eventsReceived[1]?.payload.data).toBe('test2');
-
-    subscription.unsubscribe();
-
-    eventsReceived = [];
-    await eventStore.append([{ eventType: 'YetAnotherTestEvent', payload: { data: 'test3' } }]);
-    expect(eventsReceived).toHaveLength(0);
-  });
-
 
   it('should create an instance', () => {
     expect(eventStore).toBeInstanceOf(PostgresEventStore);

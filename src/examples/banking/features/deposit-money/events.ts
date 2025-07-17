@@ -1,19 +1,22 @@
-import { HasEventType } from '../../../../eventstore/types';
+import { Event } from '../../../../eventstore/types';
 
-export class MoneyDepositedEvent implements HasEventType {
+export class MoneyDepositedEvent implements Event {
+  public readonly eventType: string = 'MoneyDeposited';
+  public readonly payload: Record<string, unknown>;
+
   constructor(
     public readonly accountId: string,
     public readonly amount: number,
     public readonly currency: string,
     public readonly depositId: string,
     public readonly timestamp: Date = new Date()
-  ) {}
-
-  eventType(): string {
-    return 'MoneyDeposited';
-  }
-
-  eventVersion(): string {
-    return '1.0';
+  ) {
+    this.payload = {
+      accountId,
+      amount,
+      currency,
+      depositId,
+      timestamp
+    };
   }
 }

@@ -39,7 +39,7 @@ export async function execute(
       result.event.timestamp
     );
     
-    await eventStore.append(filter, [event], depositStateResult.maxSequenceNumber);
+    await eventStore.append([event], filter, depositStateResult.maxSequenceNumber);
     
     return result;
   } catch (error) {
@@ -59,16 +59,16 @@ async function getDepositState(eventStore: EventStore, accountId: string): Promi
 }> {
   const filter = createFilter(['BankAccountOpened', 'MoneyDeposited'], [{ accountId: accountId }]);
   
-  const result = await eventStore.query<any>(filter);
+  const result = await eventStore.query(filter);
   
   const openingEvent = result.events.find(e => 
-    (e.event_type || (e.eventType && e.eventType())) === 'BankAccountOpened'
+    e.eventType === 'BankAccountOpened'
   );
   
-  const account = openingEvent ? { currency: openingEvent.currency } : null;
+  const account = openingEvent ? { currency: openingEvent.payload.currency as string } : null;
   const existingDepositIds = result.events
-    .filter(e => (e.event_type || (e.eventType && e.eventType())) === 'MoneyDeposited')
-    .map(e => e.depositId);
+    .filter(e => e.eventType === 'MoneyDeposited')
+    .map(e => e.payload.depositId as string);
 
   return {
     state: {

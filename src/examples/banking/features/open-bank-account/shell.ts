@@ -31,7 +31,7 @@ export async function execute(
       result.event.openedAt
     );
     
-    await eventStore.append(appendFilter, [event], openAccountState.maxSequenceNumber);
+    await eventStore.append([event], appendFilter, openAccountState.maxSequenceNumber);
     
     return result;
   } catch (error) {
@@ -50,9 +50,9 @@ async function getOpenAccountState(eventStore: EventStore, customerName: string)
 }> {
   const filter = createFilter(['BankAccountOpened']);
   
-  const result = await eventStore.query<any>(filter);
+  const result = await eventStore.query(filter);
   
-  const existingCustomerNames = result.events.map(e => e.customerName);
+  const existingCustomerNames = result.events.map(e => e.payload.customerName as string);
 
   return {
     state: {

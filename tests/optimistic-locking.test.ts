@@ -1,12 +1,16 @@
-import { EventStore, EventFilter, Event, GenericEvent, PostgresEventStore, createFilter } from '../src/eventstore';
+import { EventStore, EventFilter, Event, PostgresEventStore, createFilter } from '../src/eventstore';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 
-class TestEvent extends GenericEvent {
+class TestEvent implements Event {
+  public readonly eventType: string;
+  public readonly payload: Record<string, unknown>;
+
   constructor(eventType: string, id: string, data: Record<string, unknown>) {
-    super(eventType, { id,...data });
+    this.eventType = eventType;
+    this.payload = { id, ...data };
   }
 }
 
@@ -117,13 +121,14 @@ describe('Optimistic Locking CTE Condition', () => {
 
     // Insert event for different account (should not affect our context)
     const otherFilter = createFilter([eventType], [{ accountId: 'other-account' }]);
-    const otherEvent =new GenericEvent(eventType,  
-      {
+    const otherEvent: Event = { 
+      eventType: eventType, 
+      payload: {
         id: 'test-4.1',
         accountId: 'other-account', // Top level property
         value: 'first'
       }
-    );
+    };
     await eventStore.append([otherEvent], otherFilter, 0);
     
     // Query our specific context
@@ -132,13 +137,14 @@ describe('Optimistic Locking CTE Condition', () => {
     expect(result.maxSequenceNumber).toBe(0); // Should still be 0 for our context
     
     // Create event with accountId at the top level (not nested in data)
-    const event = new GenericEvent(eventType,
-      {
+    const event: Event = { 
+      eventType: eventType, 
+      payload: {
         id: 'test-4.2',
         accountId, // Top level property for payload predicate matching
         value: 'second'
       }
-    );
+    };
     await expect(eventStore.append([event], filter, 0)).resolves.not.toThrow();
     
     // Verify our event was inserted
@@ -157,11 +163,14 @@ describe('Optimistic Locking CTE Condition', () => {
     ]);
     
     // Insert event for account-1
-    const event1 = new GenericEvent(eventType, {
-      id: 'test-5.1',
-      accountId: 'account-1', // Top level property
-      value: 'first'}
-    );
+    const event1: Event = { 
+      eventType: eventType, 
+      payload: {
+        id: 'test-5.1',
+        accountId: 'account-1', // Top level property
+        value: 'first'
+      }
+    };
     await eventStore.append([event1], filter, 0);
     
     // Query the OR context
@@ -171,12 +180,14 @@ describe('Optimistic Locking CTE Condition', () => {
     expect(currentSequence).toBeGreaterThan(0);
     
     // Insert event for account-2 with correct sequence
-    const event2 = new GenericEvent(eventType,
-      {
+    const event2: Event = { 
+      eventType: eventType, 
+      payload: {
         id: 'test-5.2',
         accountId: 'account-2', // Top level property
-        value: 'second'}
-      );
+        value: 'second'
+      }
+    };
     //await expect(eventStore.append(filter, [event2], currentSequence)).resolves.not.toThrow();
     await eventStore.append([event2], filter, currentSequence);
 
@@ -186,11 +197,14 @@ describe('Optimistic Locking CTE Condition', () => {
     expect(currentSequence2).toBeGreaterThan(currentSequence);
     
     // Try to insert with outdated sequence (should fail)
-    const event3 = new GenericEvent(eventType, {
-      id: 'test-5.3',
-      accountId: 'account-1', // Top level property
-      value: 'third'}
-    );
+    const event3: Event = { 
+      eventType: eventType, 
+      payload: {
+        id: 'test-5.3',
+        accountId: 'account-1', // Top level property
+        value: 'third'
+      }
+    };
     await expect(
       eventStore.append([event3], filter, currentSequence) // Outdated, should be currentSequence + 1
     ).rejects.toThrow('Context changed: events were modified between query() and append()');
