@@ -1,2 +1,7 @@
 Some ideas for features to add:
-- [ ] Allow clients of IEventStore to subscribe to changes (new events successfully appended); no filters should be applied; async callback
+
+
+
+Done:
+
+- [x] Allow clients of EventStore to subscribe to changes (new events successfully appended); no filters should be applied; async callback
