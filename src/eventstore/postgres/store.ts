@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { Event, EventStore, EventFilter, QueryResult } from '../types';
+import { Event, EventStore, EventFilter, QueryResult, Subscription } from '../types';
 import { buildCteInsertQuery } from './insert';
 import { buildContextQuery } from './query';
 import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform';
@@ -26,6 +26,7 @@ export interface PostgresEventStoreOptions {
 export class PostgresEventStore implements EventStore {
   private pool: Pool;
   private readonly databaseName: string;
+  private readonly subscriptions: Map<string, (events: Event[]) => Promise<void>> = new Map();
 
   constructor(options: PostgresEventStoreOptions = {}) {
     const connectionString = options.connectionString || process.env.DATABASE_URL;
@@ -75,9 +76,22 @@ export class PostgresEventStore implements EventStore {
       if (result.rowCount === 0) {
         throw new Error('Context changed: events were modified between query() and append()');
       }
+
+      await this.notifySubscribers(events); // only notify upon success
     } finally {
       client.release();
     }
+  }
+
+
+  subscribe(listener: (events: Event[]) => Promise<void>): Subscription {
+    const subscriptionId = `sub_${this.subscriptions.size + 1}`;
+    this.subscriptions.set(subscriptionId, listener);
+
+    // return Disposable
+    return {
+      unsubscribe: () => { this.subscriptions.delete(subscriptionId);}
+    };
   }
 
 
@@ -87,6 +101,7 @@ export class PostgresEventStore implements EventStore {
   }
 
   async close(): Promise<void> {
+    this.unsubscribeAll();
     await this.pool.end();
   }
 
@@ -125,5 +140,25 @@ export class PostgresEventStore implements EventStore {
     } finally {
       client.release();
     }
+  }
+
+  
+  private async notifySubscribers(events: Event[]): Promise<void> {
+    const notifications: Promise<void>[] = [];
+    for (const [subscriptionId, listener] of this.subscriptions) {
+      try {
+        notifications.push(listener(events));
+      } catch (error) {
+        console.error(`Error in subscription ${subscriptionId}:`, error);
+        // Optional: remove subscription upon error
+        // this.subscriptions.delete(subscriptionId);
+      }
+    }
+    // notify all subscribers in parallel
+    await Promise.allSettled(notifications);
+  }
+
+  private unsubscribeAll(): void {
+    this.subscriptions.clear();
   }
 }

@@ -26,7 +26,12 @@ export interface QueryResult {
   maxSequenceNumber: number;
 }
 
+export interface Subscription {
+  unsubscribe(): void;
+}
+
 export interface EventStore {
   query(filter: EventFilter): Promise<QueryResult>;
   append(events: Event[], filter?: EventFilter,  expectedMaxSequenceNumber?: number): Promise<void>;
+  subscribe(listener: (events: Event[]) => Promise<void>): Subscription;
 }

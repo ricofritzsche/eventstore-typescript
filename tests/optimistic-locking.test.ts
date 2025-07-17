@@ -40,7 +40,6 @@ describe('Optimistic Locking CTE Condition', () => {
     // Append one event with that temp type name
     const event1 = new TestEvent(eventType, 'test-1', { value: 'first' });
     await expect(eventStore.append([event1], filter, initialResult.maxSequenceNumber)).resolves.not.toThrow();
-    console.log("appended 1 event")
 
     // Retrieve this one event, the only one with this temp type name
     const afterInsert = await eventStore.query(filter);

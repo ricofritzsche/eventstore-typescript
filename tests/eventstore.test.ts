@@ -26,6 +26,28 @@ describe('EventStore', () => {
     await eventStore.close();
   });
 
+
+  it('subscribers should get notified', async () => {
+    let eventsReceived:Event[] = [];
+    const subscription = eventStore.subscribe(async (events) => {
+      eventsReceived = events;
+    });
+
+    await eventStore.append([{ eventType: 'ATestEvent', payload: { data: 'test1' } }, { eventType: 'AnotherTestEvent', payload: { data: 'test2' } }]);
+
+    expect(eventsReceived).toHaveLength(2);
+    expect(eventsReceived[0]?.eventType).toBe('ATestEvent');
+    expect(eventsReceived[1]?.eventType).toBe('AnotherTestEvent');
+    expect(eventsReceived[1]?.payload.data).toBe('test2');
+
+    subscription.unsubscribe();
+
+    eventsReceived = [];
+    await eventStore.append([{ eventType: 'YetAnotherTestEvent', payload: { data: 'test3' } }]);
+    expect(eventsReceived).toHaveLength(0);
+  });
+
+
   it('should create an instance', () => {
     expect(eventStore).toBeInstanceOf(PostgresEventStore);
   });
