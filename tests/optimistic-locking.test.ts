@@ -71,7 +71,7 @@ describe('Optimistic Locking CTE Condition', () => {
     const event2 = new TestEvent(eventType, 'test-2.2', { value: 'second' });
     await expect(
       eventStore.append([event2], filter, 0) // Using outdated sequence 0 instead of current
-    ).rejects.toThrow('Context changed: events were modified between query() and append()');
+    ).rejects.toThrow('err05');
     
     // Verify the second event was NOT inserted
     const afterFailedInsert = await eventStore.query(filter);
@@ -103,7 +103,7 @@ describe('Optimistic Locking CTE Condition', () => {
     const event2 = new TestEvent(eventType, 'concurrent-3.b.1', { process: 'B' });
     await expect(
       eventStore.append([event2], filter, result2.maxSequenceNumber)
-    ).rejects.toThrow('Context changed: events were modified between query() and append()');
+    ).rejects.toThrow('err05');
     
     // Verify only the first event was inserted
     const finalResult = await eventStore.query(filter);
@@ -207,7 +207,7 @@ describe('Optimistic Locking CTE Condition', () => {
     };
     await expect(
       eventStore.append([event3], filter, currentSequence) // Outdated, should be currentSequence + 1
-    ).rejects.toThrow('Context changed: events were modified between query() and append()');
+    ).rejects.toThrow('err05');
   });
 
 });
