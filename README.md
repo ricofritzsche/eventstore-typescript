@@ -1,285 +1,323 @@
 # EventStore TypeScript
 
-A TypeScript implementation of a functional event sourcing system that provides persistent event storage with optimistic locking and payload-based querying. This follows the functional core/imperative shell pattern where business logic is kept pure and side effects are isolated to the storage layer.
+A comprehensive TypeScript implementation of event sourcing with real-time event streaming and projections. This system provides persistent event storage with automatic notification to event streams for building responsive, event-driven applications.
 
-## Core Philosophy
+## High-Level Architecture
 
-This EventStore is designed around the principle of **aggregateless event sourcing**, where events are the primary source of truth and state is derived through pure fold functions. Instead of traditional aggregates, we use:
+The system is built around two core concepts that work together:
 
-- **Events as first-class citizens** - Immutable facts that represent domain changes
-- **Pure fold functions** - Deterministic state reconstruction from events  
-- **Optimistic locking** - Consistency through context-aware operations
-- **Cross-slice event consumption** - Bounded contexts can consume each other's events
+### 🏪 **EventStore** - The Source of Truth
+- **Persistent Storage**: Events are immutably stored in PostgreSQL
+- **Query Engine**: Fast retrieval with filtering and payload-based queries
+- **Optimistic Locking**: Ensures consistency without traditional database locks
+- **Auto-Notification**: Automatically dispatches events to connected streams
 
-## Key Features
+### 🌊 **EventStream** - The Notification System  
+- **Real-time Processing**: Events flow immediately to interested subscribers
+- **Projection System**: Automatically updates read models (database views)
+- **Configurable Filtering**: Subscribers only receive events they care about
+- **Batched Processing**: Handles high-volume scenarios efficiently
 
-### Functional Core Pattern
-Business logic is implemented as pure functions that are easy to test and reason about:
+## System Flow
 
-```typescript
-// Pure functions - no side effects
-function foldAssetState(events: AssetRegistered[]): AssetState {
-  return { exists: events.length > 0 };
-}
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Application   │    │   EventStore    │    │   EventStream   │
+│                 │    │                 │    │                 │
+│  ┌──────────┐   │    │  ┌──────────┐   │    │  ┌──────────┐   │
+│  │Commands  │ ──┼───▶│  │PostgreSQL│   │    │  │Subscribers│   │
+│  │          │   │    │  │Database  │   │    │  │           │   │
+│  └──────────┘   │    │  └──────────┘   │    │  └──────────┘   │
+│                 │    │       │         │    │       ▲         │
+│  ┌──────────┐   │    │       │         │    │       │         │
+│  │Queries   │ ◀─┼────│       │         │    │       │         │
+│  │          │   │    │       │         │    │       │         │
+│  └──────────┘   │    │       ▼         │    │       │         │
+│                 │    │  ┌──────────┐   │    │  ┌──────────┐   │
+└─────────────────┘    │  │Auto-     │ ──┼───▶│  │Event     │   │
+                       │  │Dispatch  │   │    │  │Filtering │   │
+                       │  └──────────┘   │    │  └──────────┘   │
+                       └─────────────────┘    └─────────────────┘
+                                                       │
+                                                       ▼
+                                              ┌─────────────────┐
+                                              │   Projections   │
+                                              │                 │
+                                              │  ┌──────────┐   │
+                                              │  │Accounts  │   │
+                                              │  │Table     │   │
+                                              │  └──────────┘   │
+                                              │  ┌──────────┐   │
+                                              │  │Users     │   │
+                                              │  │Table     │   │
+                                              │  └──────────┘   │
+                                              │  ┌──────────┐   │
+                                              │  │Other     │   │
+                                              │  │Views     │   │
+                                              │  └──────────┘   │
+                                              └─────────────────┘
 
-function decideAssetRegistration(
-  state: AssetState, 
-  assetId: string, 
-  name: string
-): AssetRegistered[] {
-  if (state.exists) {
-    throw new Error('AssetAlreadyExists');
-  }
-  return [new AssetRegisteredEvent(assetId, name)];
-}
+1. Application sends commands to EventStore
+2. EventStore saves events to PostgreSQL
+3. EventStore automatically dispatches events to EventStream
+4. EventStream filters and sends events to subscribers
+5. Subscribers (projections) update their read models
+6. Application queries both EventStore and projections
 ```
 
-### Optimistic Locking
-Ensures consistency without traditional database locks by validating context hasn't changed:
+## Core Modules
 
-```typescript
-// Query with specific context
-const filter = EventStore
-  .createFilter(['AssetRegistered'])
-  .withPayloadPredicate('name', assetName);
+### 📦 **EventStore Module** (`src/eventstore/`)
 
-const events = await store.queryEvents<AssetRegistered>(filter);
-const state = foldAssetState(events);
-const newEvents = decideAssetRegistration(state, assetId, assetName);
+**Purpose**: Persistent event storage and retrieval
 
-// Append with same filter - fails if context changed
-await store.append(filter, newEvents);
+**Key Components**:
+- **`types.ts`** - Core interfaces (Event, EventFilter, EventStore)
+- **`postgres/`** - PostgreSQL implementation with optimized queries
+- **`filter.ts`** - Helper for creating event filters
+
+**Responsibilities**:
+- Store events immutably in PostgreSQL
+- Query events with filtering and payload-based searches
+- Provide optimistic locking for consistency
+- Auto-dispatch events to connected streams
+
+### 🌊 **EventStream Module** (`src/eventstream/`)
+
+**Purpose**: Real-time event processing and projections
+
+**Key Components**:
+- **`types.ts`** - Stream interfaces (EventStream, StreamSubscription)
+- **`memory.ts`** - In-memory stream implementation
+- **`projection.ts`** - Projection system with database integration
+- **`stream.ts`** - Event filtering and subscription utilities
+
+**Responsibilities**:
+- Receive events from EventStore
+- Filter events for specific subscribers
+- Manage subscriptions and batching
+- Provide projection infrastructure
+
+### 🏦 **Examples** (`src/examples/banking/`)
+
+**Purpose**: Feature-sliced banking application demonstrating usage
+
+**Key Components**:
+- **`features/`** - Individual feature slices (accounts, deposits, etc.)
+- **`cli.ts`** - Interactive command-line interface
+- **Feature Structure**:
+  - `core.ts` - Pure business logic
+  - `shell.ts` - EventStore integration
+  - `types.ts` - Domain types and interfaces
+
+## Event Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                Event Flow                                       │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌─────────────┐  append()  ┌─────────────┐  dispatch()  ┌─────────────┐      │
+│  │   Command   │ ─────────▶ │ EventStore  │ ────────────▶ │ EventStream │      │
+│  │  Handler    │            │             │              │             │      │
+│  └─────────────┘            └─────────────┘              └─────────────┘      │
+│                                     │                            │             │
+│                                     ▼                            ▼             │
+│  ┌─────────────┐            ┌─────────────┐              ┌─────────────┐      │
+│  │  PostgreSQL │            │   Events    │              │   Filtered  │      │
+│  │  Database   │            │   Saved     │              │   Events    │      │
+│  └─────────────┘            └─────────────┘              └─────────────┘      │
+│                                                                   │             │
+│                                                                   ▼             │
+│                                                          ┌─────────────┐      │
+│                                                          │ Projection  │      │
+│                                                          │ Subscribers │      │
+│                                                          └─────────────┘      │
+│                                                                   │             │
+│                                                                   ▼             │
+│                                                          ┌─────────────┐      │
+│                                                          │ Read Models │      │
+│                                                          │   Updated   │      │
+│                                                          └─────────────┘      │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Payload-Based Querying
-Precise event filtering using JSONB containment operators:
+## Projection System
 
-```typescript
-// Filter by event types and payload content
-const filter = EventStore
-  .createFilter(['AssetRegistered', 'DeviceRegistered'])
-  .withPayloadPredicate('organizationId', 'org-123')
-  .withPayloadPredicate('status', 'active');
+The projection system automatically keeps read models synchronized with events:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            Projection Architecture                              │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│  ┌─────────────┐              ┌─────────────┐              ┌─────────────┐     │
+│  │   Events    │              │ Projection  │              │    Read     │     │
+│  │             │              │   System    │              │   Models    │     │
+│  │ ┌─────────┐ │              │             │              │             │     │
+│  │ │Account  │ │──────────────│ ┌─────────┐ │──────────────│ ┌─────────┐ │     │
+│  │ │Opened   │ │              │ │Account  │ │              │ │Accounts │ │     │
+│  │ └─────────┘ │              │ │Listener │ │              │ │ Table   │ │     │
+│  │             │              │ └─────────┘ │              │ └─────────┘ │     │
+│  │ ┌─────────┐ │              │             │              │             │     │
+│  │ │Money    │ │──────────────│ ┌─────────┐ │──────────────│ ┌─────────┐ │     │
+│  │ │Deposited│ │              │ │User     │ │              │ │Users    │ │     │
+│  │ └─────────┘ │              │ │Listener │ │              │ │ Table   │ │     │
+│  │             │              │ └─────────┘ │              │ └─────────┘ │     │
+│  │ ┌─────────┐ │              │             │              │             │     │
+│  │ │User     │ │──────────────│ ┌─────────┐ │──────────────│ ┌─────────┐ │     │
+│  │ │Created  │ │              │ │Other    │ │              │ │Other    │ │     │
+│  │ └─────────┘ │              │ │Listeners│ │              │ │ Views   │ │     │
+│  │             │              │ └─────────┘ │              │ └─────────┘ │     │
+│  └─────────────┘              └─────────────┘              └─────────────┘     │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Architecture
+## Quick Start
 
-### Core Interfaces
-
-```typescript
-// Events must implement this interface
-interface HasEventType {
-  eventType(): string;
-  eventVersion?(): string;
-}
-
-// Main EventStore interface  
-interface IEventStore {
-  queryEvents<T extends HasEventType>(filter: EventFilter): Promise<T[]>;
-  append<T extends HasEventType>(filter: EventFilter, events: T[]): Promise<void>;
-}
-```
-
-### PostgreSQL Schema
-
-```sql
-CREATE TABLE events (
-  sequence_number BIGSERIAL PRIMARY KEY,
-  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  event_type TEXT NOT NULL,
-  payload JSONB NOT NULL,
-  metadata JSONB NOT NULL DEFAULT '{}'
-);
-
--- Optimized indexes for querying
-CREATE INDEX idx_events_type ON events(event_type);
-CREATE INDEX idx_events_occurred_at ON events(occurred_at);
-CREATE INDEX idx_events_payload_gin ON events USING gin(payload);
-```
-
-### Optimistic Locking Implementation
-
-The append operation uses a CTE (Common Table Expression) to ensure atomicity and prevent race conditions:
-
-```sql
-WITH context AS (
-  SELECT MAX(sequence_number) AS max_seq
-  FROM events 
-  WHERE event_type = ANY($1) AND payload @> $2
-)
-INSERT INTO events (event_type, payload, metadata)
-SELECT unnest($4::text[]), unnest($5::jsonb[]), unnest($6::jsonb[])
-FROM context
-WHERE COALESCE(max_seq, 0) = $3
-```
-
-This ensures that:
-- Context validation and event insertion happen atomically
-- No events can be inserted if the context has changed
-- Multiple events can be inserted efficiently in a single operation
-- Race conditions between concurrent operations are prevented
-
-## Getting Started
-
-### Installation
-
+### 1. Setup
 ```bash
+# Install dependencies
 npm install
-```
 
-### Database Setup
-
-1. **Start PostgreSQL** (Docker example):
-```bash
+# Start PostgreSQL
 docker run --name eventstore-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=eventstore -p 5432:5432 -d postgres:15
-```
 
-2. **Set connection string** (optional):
-```bash
+# Set connection string
 export DATABASE_URL="postgres://postgres:postgres@localhost:5432/eventstore"
 ```
 
-### Basic Usage
-
+### 2. Basic Usage
 ```typescript
-import { EventStore, HasEventType } from './src';
+import { PostgresEventStore } from './src/eventstore';
+import { MemoryEventStream, configureProjector, startProjectionListener } from './src/eventstream';
 
-// 1. Define your events
-class AssetRegistered implements HasEventType {
-  constructor(
-    public readonly assetId: string,
-    public readonly name: string,
-    public readonly occurredAt: Date = new Date()
-  ) {}
+// Connect EventStore and EventStream
+const eventStream = new MemoryEventStream();
+const eventStore = new PostgresEventStore({ eventStream });
+await eventStore.initializeDatabase();
 
-  eventType(): string {
-    return 'AssetRegistered';
+// Setup projections
+configureProjector({ 
+  connectionString: process.env.DATABASE_URL! 
+});
+
+// Start projection listener
+const stopListener = await startProjectionListener(eventStream, {
+  eventTypes: ['UserRegistered', 'UserUpdated'],
+  handlers: {
+    'UserRegistered': async (event) => {
+      // Update users table
+      await insertUser(event.payload);
+    },
+    'UserUpdated': async (event) => {
+      // Update users table
+      await updateUser(event.payload);
+    }
   }
-}
+});
 
-// 2. Create EventStore and migrate
-const store = new EventStore();
-await store.migrate();
-
-// 3. Store events with context
-const filter = EventStore
-  .createFilter(['AssetRegistered'])
-  .withPayloadPredicate('name', 'MyAsset');
-
-const events = [new AssetRegistered('asset-123', 'MyAsset')];
-await store.append(filter, events);
-
-// 4. Query events
-const storedEvents = await store.queryEvents<AssetRegistered>(filter);
+// Store events - projections update automatically
+await eventStore.append([{
+  eventType: 'UserRegistered',
+  payload: { userId: '123', email: 'user@example.com' }
+}]);
 ```
 
-### Running the Example
+### 3. Run Banking Example
+```bash
+npm run example:banking
+```
+
+## Key Features
+
+### 🔒 **Optimistic Locking**
+Ensures consistency without traditional database locks by validating context hasn't changed:
+
+```typescript
+// Query with context
+const filter = createFilter(['BankAccountOpened'], [{ accountId: 'acc-123' }]);
+const result = await eventStore.query(filter);
+
+// Business logic
+const events = processCommand(result.events);
+
+// Append with context validation
+await eventStore.append(events, filter, result.maxSequenceNumber);
+```
+
+### 🎯 **Payload-Based Querying**
+Precise event filtering using PostgreSQL JSONB operators:
+
+```typescript
+// Filter by event content
+const filter = createFilter(
+  ['MoneyDeposited', 'MoneyWithdrawn'],
+  [{ accountId: 'acc-123', currency: 'USD' }]
+);
+const events = await eventStore.query(filter);
+```
+
+### ⚡ **Real-time Projections**
+Automatically update read models when events occur:
+
+```typescript
+// Define projection
+const config = createProjectionConfig(
+  ['UserRegistered', 'UserUpdated'],
+  {
+    'UserRegistered': async (event) => {
+      await insertUser(event.payload);
+    },
+    'UserUpdated': async (event) => {
+      await updateUser(event.payload);
+    }
+  }
+);
+
+// Start listening - updates happen automatically
+await startProjectionListener(eventStream, config);
+```
+
+### 🏗️ **Feature-Sliced Architecture**
+Organize code by business capabilities:
+
+```
+features/
+├── user-management/
+│   ├── core.ts          # Pure business logic
+│   ├── shell.ts         # EventStore integration
+│   └── types.ts         # Domain types
+├── account-management/
+│   ├── core.ts
+│   ├── shell.ts
+│   └── types.ts
+└── list-accounts/       # Projection example
+    ├── projector.ts     # Database operations
+    ├── listener.ts      # Event handling
+    └── query.ts         # Read queries
+```
+
+## Performance Characteristics
+
+- **Storage**: PostgreSQL with optimized JSONB indexing
+- **Querying**: GIN indexes for fast payload-based searches
+- **Streaming**: Batched event processing for high throughput
+- **Projections**: Configurable batch sizes and error handling
+- **Connections**: Connection pooling for database efficiency
+
+## Testing
 
 ```bash
-npm run example
+# Run all tests
+npm test
+
+# Run specific test suites
+npm run test:unit
+npm run test:integration
 ```
-
-This demonstrates:
-- Basic event storage and retrieval
-- Optimistic locking preventing duplicate asset names
-- Cross-slice event consumption for device binding
-
-## Usage Patterns
-
-### 1. Command Handler Pattern
-
-```typescript
-async function executeAssetRegistration(
-  store: EventStore,
-  assetId: string,
-  name: string
-): Promise<void> {
-  // Query current state
-  const filter = EventStore
-    .createFilter(['AssetRegistered'])
-    .withPayloadPredicate('name', name);
-  
-  const events = await store.queryEvents<AssetRegistered>(filter);
-  
-  // Pure business logic
-  const state = foldAssetState(events);
-  const newEvents = decideAssetRegistration(state, assetId, name);
-  
-  // Persist with optimistic locking
-  await store.append(filter, newEvents);
-}
-```
-
-### 2. Event Projections
-
-```typescript
-// Build read models from events
-async function buildAssetProjection(store: EventStore): Promise<AssetView[]> {
-  const filter = EventStore.createFilter(['AssetRegistered', 'AssetUpdated']);
-  const events = await store.queryEvents(filter);
-  
-  return events.reduce((projection, event) => {
-    // Apply event to projection
-    return applyEventToProjection(projection, event);
-  }, []);
-}
-```
-
-## Testing Strategy
-
-### Unit Tests (Pure Functions)
-```typescript
-describe('Asset Registration Logic', () => {
-  it('should allow registration of new asset', () => {
-    const state = { exists: false };
-    const events = decideAssetRegistration(state, 'asset-1', 'Test Asset');
-    
-    expect(events).toHaveLength(1);
-    expect(events[0].assetId).toBe('asset-1');
-  });
-
-  it('should reject duplicate asset names', () => {
-    const state = { exists: true };
-    
-    expect(() => decideAssetRegistration(state, 'asset-1', 'Test Asset'))
-      .toThrow('AssetAlreadyExists');
-  });
-});
-```
-
-### Integration Tests
-```typescript
-describe('EventStore Integration', () => {
-  it('should enforce optimistic locking', async () => {
-    const store = new EventStore();
-    
-    // First registration succeeds
-    await executeAssetRegistration(store, 'asset-1', 'Test Asset');
-    
-    // Second registration with same name fails
-    await expect(executeAssetRegistration(store, 'asset-2', 'Test Asset'))
-      .rejects.toThrow('AssetAlreadyExists');
-  });
-});
-```
-
-## Configuration
-
-### Environment Variables
-
-- `DATABASE_URL` - PostgreSQL connection string
-- Default: `"postgres://postgres:postgres@localhost:5432/eventstore"`
-
-### TypeScript Configuration
-
-Requires `exactOptionalPropertyTypes: true` for proper type safety with optional properties.
-
-## Performance Considerations
-
-- **Indexing**: JSONB GIN indexes enable fast payload queries
-- **Batching**: Use bulk operations for high-throughput scenarios
-- **Partitioning**: Consider table partitioning for very large event stores
-- **Connection Pooling**: Uses pg connection pooling by default
 
 ## Contributing
 

@@ -5,6 +5,17 @@ export interface WithdrawMoneyCommand {
   withdrawalId: string;
 }
 
+export interface AccountState {
+  exists: boolean;
+  balance: number;
+  currency: string;
+}
+
+export interface WithdrawState {
+  account: AccountState | null;
+  existingWithdrawalIds: string[];
+}
+
 export interface MoneyWithdrawnEvent {
   type: 'MoneyWithdrawn';
   accountId: string;

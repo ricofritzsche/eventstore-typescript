@@ -1,7 +1,7 @@
 import { EventFilter, createFilter } from '../../../../eventstore';
 import { EventStore } from '../../../../eventstore/types';
 import { OpenBankAccountCommand, OpenAccountResult } from './types';
-import { processOpenAccountCommand } from './core';
+import { foldOpenAccountState, decideOpenAccount } from './core';
 import { BankAccountOpenedEvent } from './events';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -11,17 +11,16 @@ export async function execute(
 ): Promise<OpenAccountResult> {
   const accountId = uuidv4();
   
-  const openAccountState = await getOpenAccountState(eventStore, command.customerName);
-  
-  const result = processOpenAccountCommand(command, accountId, openAccountState.state.existingCustomerNames);
+  const filter = createFilter(['BankAccountOpened']);
+  const queryResult = await eventStore.query(filter);
+  const state = foldOpenAccountState(queryResult.events);
+  const result = decideOpenAccount(command, accountId, state);
   
   if (!result.success) {
     return result;
   }
 
   try {
-    const appendFilter = createFilter(['BankAccountOpened']);
-    
     const event = new BankAccountOpenedEvent(
       result.event.accountId,
       result.event.customerName,
@@ -31,7 +30,7 @@ export async function execute(
       result.event.openedAt
     );
     
-    await eventStore.append([event], appendFilter, openAccountState.maxSequenceNumber);
+    await eventStore.append([event], filter, queryResult.maxSequenceNumber);
     
     return result;
   } catch (error) {
@@ -42,23 +41,4 @@ export async function execute(
   }
 }
 
-async function getOpenAccountState(eventStore: EventStore, customerName: string): Promise<{
-  state: {
-    existingCustomerNames: string[];
-  };
-  maxSequenceNumber: number;
-}> {
-  const filter = createFilter(['BankAccountOpened']);
-  
-  const result = await eventStore.query(filter);
-  
-  const existingCustomerNames = result.events.map(e => e.payload.customerName as string);
-
-  return {
-    state: {
-      existingCustomerNames
-    },
-    maxSequenceNumber: result.maxSequenceNumber
-  };
-}
 

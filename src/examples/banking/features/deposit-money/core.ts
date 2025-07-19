@@ -1,4 +1,4 @@
-import { DepositMoneyCommand, MoneyDepositedEvent, AccountBalance, DepositError, DepositResult } from './types';
+import { DepositMoneyCommand, MoneyDepositedEvent, AccountBalance, DepositError, DepositResult, DepositState } from './types';
 
 const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP'];
 const MIN_DEPOSIT_AMOUNT = 0.01;
@@ -24,16 +24,39 @@ export function validateDepositCommand(command: DepositMoneyCommand): DepositErr
   return null;
 }
 
-export function processDepositCommand(
+export function foldDepositState(events: any[], accountId: string): DepositState {
+  const openingEvent = events.find(e => 
+    e.eventType === 'BankAccountOpened' && e.payload.accountId === accountId
+  );
+  
+  const account = openingEvent ? { currency: openingEvent.payload.currency as string } : null;
+  const existingDepositIds = events
+    .filter(e => e.eventType === 'MoneyDeposited' && e.payload.accountId === accountId)
+    .map(e => e.payload.depositId as string);
+
+  return {
+    account,
+    existingDepositIds
+  };
+}
+
+export function decideDeposit(
   command: DepositMoneyCommand,
-  existingDepositIds: string[]
+  state: DepositState
 ): DepositResult {
   const validationError = validateDepositCommand(command);
   if (validationError) {
     return { success: false, error: validationError };
   }
 
-  if (existingDepositIds.includes(command.depositId)) {
+  if (!state.account) {
+    return {
+      success: false,
+      error: { type: 'InvalidAmount', message: 'Account not found' }
+    };
+  }
+
+  if (state.existingDepositIds.includes(command.depositId)) {
     return { 
       success: false, 
       error: { type: 'DuplicateDeposit', message: 'Deposit ID already exists' } 
@@ -44,13 +67,14 @@ export function processDepositCommand(
     type: 'MoneyDeposited',
     accountId: command.accountId,
     amount: command.amount,
-    currency: command.currency || 'USD',
+    currency: command.currency || state.account.currency,
     depositId: command.depositId,
     timestamp: new Date()
   };
 
   return { success: true, event };
 }
+
 
 export function foldMoneyDepositedEvents(events: MoneyDepositedEvent[]): AccountBalance | null {
   if (events.length === 0) {
