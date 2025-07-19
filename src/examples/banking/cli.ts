@@ -3,7 +3,7 @@
 import * as readline from 'readline';
 import dotenv from 'dotenv';
 import { PostgresEventStore, EventStore } from '../../eventstore';
-import { MemoryEventStream, configureProjector } from '../../eventstream';
+import { MemoryEventStream } from '../../eventstream';
 import * as OpenBankAccount from './features/open-bank-account';
 import * as GetAccount from './features/get-account';
 import * as DepositMoney from './features/deposit-money';
@@ -37,9 +37,8 @@ class BankingCLI {
         throw new Error('DATABASE_URL environment variable is required');
       }
       
-      configureProjector({ connectionString });
       await ListAccounts.createAccountsTable(connectionString);
-      this.stopListener = await ListAccounts.startAccountProjectionListener(this.eventStream!);
+      this.stopListener = await ListAccounts.startAccountProjectionListener(this.eventStream!, connectionString);
       
       console.log('🏦 Welcome to the Event-Sourced Banking System!\n');
       await this.showMainMenu();
