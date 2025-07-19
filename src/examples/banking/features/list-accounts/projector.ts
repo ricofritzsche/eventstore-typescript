@@ -1,6 +1,5 @@
 import { Pool } from 'pg';
 import { Event } from '../../../../eventstore/types';
-import { getProjectorConfig } from '../../../../eventstream';
 
 export async function createAccountsTable(connectionString: string, tableName: string = 'accounts'): Promise<void> {
   const pool = new Pool({ connectionString });
@@ -28,16 +27,15 @@ export async function createAccountsTable(connectionString: string, tableName: s
   }
 }
 
-export async function handleAccountOpened(event: Event): Promise<void> {
-  const config = getProjectorConfig();
-  const pool = new Pool({ connectionString: config.connectionString });
+export async function handleAccountOpened(event: Event, connectionString: string, tableName: string = 'accounts'): Promise<void> {
+  const pool = new Pool({ connectionString });
   const client = await pool.connect();
   
   try {
     const { accountId, customerName, accountType, initialDeposit, currency, openedAt } = event.payload;
     
     await client.query(
-      `INSERT INTO ${config.tableName || 'accounts'} 
+      `INSERT INTO ${tableName} 
        (account_id, customer_name, account_type, balance, currency, opened_at, last_updated_at) 
        VALUES ($1, $2, $3, $4, $5, $6, NOW())
        ON CONFLICT (account_id) DO UPDATE SET
@@ -55,16 +53,15 @@ export async function handleAccountOpened(event: Event): Promise<void> {
   }
 }
 
-export async function handleMoneyDeposited(event: Event): Promise<void> {
-  const config = getProjectorConfig();
-  const pool = new Pool({ connectionString: config.connectionString });
+export async function handleMoneyDeposited(event: Event, connectionString: string, tableName: string = 'accounts'): Promise<void> {
+  const pool = new Pool({ connectionString });
   const client = await pool.connect();
   
   try {
     const { accountId, amount, currency } = event.payload;
     
     await client.query(
-      `UPDATE ${config.tableName || 'accounts'} 
+      `UPDATE ${tableName} 
        SET balance = balance + $1, last_updated_at = NOW()
        WHERE account_id = $2 AND currency = $3`,
       [amount, accountId, currency]
@@ -75,16 +72,15 @@ export async function handleMoneyDeposited(event: Event): Promise<void> {
   }
 }
 
-export async function handleMoneyWithdrawn(event: Event): Promise<void> {
-  const config = getProjectorConfig();
-  const pool = new Pool({ connectionString: config.connectionString });
+export async function handleMoneyWithdrawn(event: Event, connectionString: string, tableName: string = 'accounts'): Promise<void> {
+  const pool = new Pool({ connectionString });
   const client = await pool.connect();
   
   try {
     const { accountId, amount, currency } = event.payload;
     
     await client.query(
-      `UPDATE ${config.tableName || 'accounts'} 
+      `UPDATE ${tableName} 
        SET balance = balance - $1, last_updated_at = NOW()
        WHERE account_id = $2 AND currency = $3`,
       [amount, accountId, currency]
@@ -95,23 +91,22 @@ export async function handleMoneyWithdrawn(event: Event): Promise<void> {
   }
 }
 
-export async function handleMoneyTransferred(event: Event): Promise<void> {
-  const config = getProjectorConfig();
-  const pool = new Pool({ connectionString: config.connectionString });
+export async function handleMoneyTransferred(event: Event, connectionString: string, tableName: string = 'accounts'): Promise<void> {
+  const pool = new Pool({ connectionString });
   const client = await pool.connect();
   
   try {
     const { fromAccountId, toAccountId, amount, currency } = event.payload;
 
     await client.query(
-      `UPDATE ${config.tableName || 'accounts'} 
+      `UPDATE ${tableName} 
        SET balance = balance - $1, last_updated_at = NOW()
        WHERE account_id = $2 AND currency = $3`,
       [amount, fromAccountId, currency]
     );
 
     await client.query(
-      `UPDATE ${config.tableName || 'accounts'} 
+      `UPDATE ${tableName} 
        SET balance = balance + $1, last_updated_at = NOW()
        WHERE account_id = $2 AND currency = $3`,
       [amount, toAccountId, currency]

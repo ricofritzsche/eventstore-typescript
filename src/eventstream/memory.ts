@@ -1,55 +1,37 @@
-import { Event, EventFilter } from '../eventstore/types';
-import { 
-  EventStream, 
-  StreamSubscription, 
-  EventStreamOptions, 
-  HandleEvents 
-} from './types';
-import { 
-  createStreamSubscription, 
-  filterEvents, 
-  generateSubscriptionId 
-} from './stream';
+import { Event } from '../eventstore/types';
+import { EventStream, EventSubscription, HandleEvents } from './types';
+
+interface Subscription {
+  id: string;
+  handle: HandleEvents;
+}
 
 export class MemoryEventStream implements EventStream {
-  private subscriptions: Map<string, StreamSubscription> = new Map();
+  private subscriptions: Map<string, Subscription> = new Map();
+  private subscriptionCounter = 0;
 
-  async subscribe(
-    filter: EventFilter, 
-    handle: HandleEvents, 
-    options: EventStreamOptions = {}
-  ): Promise<StreamSubscription> {
-    const id = generateSubscriptionId();
-    const subscription = createStreamSubscription(
-      id,
-      filter,
-      handle,
-      options,
-      () => this.unsubscribe(id)
-    );
-
+  async subscribe(handle: HandleEvents): Promise<EventSubscription> {
+    const id = `sub-${++this.subscriptionCounter}`;
+    const subscription: Subscription = { id, handle };
+    
     this.subscriptions.set(id, subscription);
-    return subscription;
+    
+    return {
+      id,
+      unsubscribe: async () => {
+        this.subscriptions.delete(id);
+      }
+    };
   }
 
   async dispatch(events: Event[]): Promise<void> {
     if (events.length === 0) return;
 
     const processPromises = Array.from(this.subscriptions.values()).map(async (subscription) => {
-      const matchingEvents = filterEvents(events, subscription.filter);
-      
-      if (matchingEvents.length > 0) {
-        try {
-          // Process events in batches if configured
-          const batchSize = subscription.options.batchSize || matchingEvents.length;
-          
-          for (let i = 0; i < matchingEvents.length; i += batchSize) {
-            const batch = matchingEvents.slice(i, i + batchSize);
-            await subscription.handle(batch);
-          }
-        } catch (error) {
-          console.error(`Error handling events for subscription ${subscription.id}:`, error);
-        }
+      try {
+        await subscription.handle(events);
+      } catch (error) {
+        console.error(`Error handling events for subscription ${subscription.id}:`, error);
       }
     });
 
@@ -58,9 +40,5 @@ export class MemoryEventStream implements EventStream {
 
   async close(): Promise<void> {
     this.subscriptions.clear();
-  }
-
-  private async unsubscribe(subscriptionId: string): Promise<void> {
-    this.subscriptions.delete(subscriptionId);
   }
 }

@@ -1,93 +1,87 @@
 # EventStream Module
 
-The EventStream module provides real-time event processing and projection capabilities. It listens to events and updates read models (like database tables) automatically.
+The EventStream module provides minimal event streaming capabilities for real-time event processing. It focuses on simple subscription management and event dispatching.
 
 ## What it does
 
-**EventStream** is like a notification system that:
-- Listens for events as they happen
-- Sends events to subscribers who are interested
-- Helps build projections (read models) that stay up-to-date
+**EventStream** is a lightweight notification system that:
+- Allows features to subscribe to events with a simple handler function
+- Dispatches events to all active subscriptions
+- Provides basic error handling and subscription management
 
 ## Structure
 
 ### Core Files
 
-**`types.ts`** - The basic building blocks:
-- `EventStream` - Main interface for event streaming
-- `StreamSubscription` - Represents a listener for events
-- `HandleEvents` - Function that processes events
-- `PersistentEventStream` - Advanced stream with checkpoints
-
-**`stream.ts`** - Helper utilities:
-- `createStreamSubscription()` - Creates a subscription
-- `matchesFilter()` - Checks if an event matches a filter
-- `filterEvents()` - Filters a list of events
+**`types.ts`** - The basic interfaces:
+- `EventStream` - Main interface with `subscribe()`, `dispatch()`, and `close()`
+- `EventSubscription` - Represents a subscription with `unsubscribe()`
+- `HandleEvents` - Function signature for processing event batches
 
 **`memory.ts`** - In-memory implementation:
 - `MemoryEventStream` - Simple event stream that runs in memory
-- Good for development and testing
+- Perfect for development, testing, and lightweight applications
 
-**`projection.ts`** - Projection system:
-- `ProjectionConfig` - Configuration for projections
-- `ProjectorConfig` - Database configuration for projectors
-- `startProjectionListener()` - Starts listening and updating projections
-
-**`index.ts`** - Entry point that exports everything you need
+**`index.ts`** - Entry point that exports the core interfaces
 
 ## How it works
 
-1. **Subscribe**: Your projection subscribes to specific event types
-2. **Dispatch**: When events happen, they are sent to the stream
-3. **Filter**: Stream filters events and sends only relevant ones to subscribers
-4. **Process**: Subscriber processes events and updates read models (like database tables)
+1. **Subscribe**: Features subscribe with a simple handler function
+2. **Dispatch**: Events are dispatched to all active subscribers
+3. **Process**: Each subscriber processes the full event batch
+4. **Error Handling**: Individual subscription errors don't affect others
 
 ## Simple Example
 
 ```typescript
-import { MemoryEventStream, configureProjector, startProjectionListener } from './eventstream';
+import { MemoryEventStream } from './eventstream';
+import { Event } from '../eventstore/types';
 
-// Setup
+// Create stream
 const eventStream = new MemoryEventStream();
-configureProjector({ connectionString: 'postgres://...' });
 
-// Create projection that listens to events
-const stopListener = await startProjectionListener(eventStream, {
-  eventTypes: ['UserRegistered', 'UserUpdated'],
-  handlers: {
-    'UserRegistered': async (event) => {
-      // Update users table
-      await insertUser(event.payload);
-    },
-    'UserUpdated': async (event) => {
-      // Update users table
-      await updateUser(event.payload);
+// Subscribe with a handler
+const subscription = await eventStream.subscribe(async (events: Event[]) => {
+  for (const event of events) {
+    switch (event.eventType) {
+      case 'BankAccountOpened':
+        await handleAccountOpened(event);
+        break;
+      case 'MoneyDeposited':
+        await handleMoneyDeposited(event);
+        break;
     }
   }
 });
 
-// When events happen, projections auto-update
+// Dispatch events
 await eventStream.dispatch([{
-  eventType: 'UserRegistered',
-  payload: { userId: '123', email: 'user@example.com' }
+  eventType: 'BankAccountOpened',
+  payload: { accountId: '123', customerName: 'John Doe' }
 }]);
+
+// Cleanup
+await subscription.unsubscribe();
 ```
 
-## Key Concepts
+## Key Design Principles
 
-- **Real-time**: Events are processed as they happen
-- **Filtered**: Each subscriber only gets events they care about
-- **Projections**: Build read models that stay synchronized with events
-- **Configurable**: Easy to set up different projections for different features
-- **Batched**: Events can be processed in batches for better performance
+- **Minimal Interface**: Only essential methods (`subscribe`, `dispatch`, `close`)
+- **No Framework Lock-in**: Features handle their own projection logic
+- **Simple Error Handling**: Failed subscriptions don't affect others
+- **Stateless Handlers**: Event handlers are pure functions that process event batches
+- **Feature Ownership**: Each feature decides how to process events
 
-## Projection Pattern
+## Integration with EventStore
 
-The module makes it easy to build projections:
+The EventStore can automatically dispatch events to the EventStream:
 
-1. **Configure**: Set up database connection once
-2. **Define Handlers**: Create functions that process each event type
-3. **Start Listening**: Use `startProjectionListener()` to begin processing
-4. **Automatic Updates**: Your read models stay in sync automatically
+```typescript
+const eventStream = new MemoryEventStream();
+const eventStore = new PostgresEventStore({ eventStream });
 
-This pattern is used throughout the application to keep different views of data (like account balances, user profiles, etc.) up-to-date with the latest events.
+// Events are automatically dispatched when appended to the store
+await eventStore.append(events, filter, maxSequenceNumber);
+```
+
+This module provides the foundation for real-time event processing while keeping complexity to a minimum.

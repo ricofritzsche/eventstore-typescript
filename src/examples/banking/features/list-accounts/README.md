@@ -1,19 +1,41 @@
 # List Accounts Feature
 
-This feature demonstrates how projections work in the event sourcing system. It maintains a read model (database table) that gets automatically updated whenever banking events occur.
+This feature demonstrates how to implement projections in the event sourcing system. It maintains a read model (database table) that gets automatically updated whenever banking events occur.
 
 ## How it works
 
-1. **Event Listener**: Listens for `BankAccountOpened`, `MoneyDeposited`, `MoneyWithdrawn`, and `MoneyTransferred` events from the event stream
-2. **Projection**: Updates the `accounts` table in real-time as events are processed
-3. **Query**: Provides a simple interface to list all accounts with current balances
+1. **Simple Subscription**: Uses `eventStream.subscribe(handleEvents)` to listen for all events
+2. **Event Handling**: Filters and processes relevant banking events in the handler
+3. **Direct Database Updates**: Updates the `accounts` table directly for each event type
+4. **Query Interface**: Provides a simple interface to list all accounts with current balances
 
 ## Components
 
-- `listener.ts` - Subscribes to events and triggers projection updates
+- `listener.ts` - Subscribes to the event stream and routes events to handlers
 - `projector.ts` - Handles database operations (insert/update account records)  
 - `query.ts` - Queries the current state of accounts
 - `types.ts` - Domain types for accounts
+
+## Key Design
+
+The feature handles its own projection logic without relying on framework abstractions:
+
+```typescript
+// Simple subscription
+const subscription = await eventStream.subscribe(handleEvents);
+
+// Direct event handling
+const handleEvents = async (events: Event[]) => {
+  for (const event of events) {
+    switch (event.eventType) {
+      case 'BankAccountOpened':
+        await handleAccountOpened(event, connectionString);
+        break;
+      // ... other events
+    }
+  }
+};
+```
 
 ## Database Schema
 
@@ -31,7 +53,13 @@ CREATE TABLE accounts (
 
 ## Usage
 
-The projection runs automatically when the CLI is started. Accounts are created when `BankAccountOpened` events occur, and balances are updated for deposit, withdrawal, and transfer events.
+The projection runs automatically when the CLI is started:
+
+```typescript
+import { startAccountProjectionListener } from './listener';
+
+const stopListener = await startAccountProjectionListener(eventStream, connectionString);
+```
 
 To query accounts:
 ```typescript
@@ -40,4 +68,4 @@ import { listAccounts } from './query';
 const accounts = await listAccounts();
 ```
 
-This feature serves as an example of how to implement event-driven projections for read models in the banking system.
+This feature demonstrates the minimal approach: direct event stream subscription with feature-owned projection logic.

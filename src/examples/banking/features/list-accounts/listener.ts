@@ -1,4 +1,5 @@
-import { EventStream, startProjectionListener, createProjectionConfig } from '../../../../eventstream';
+import { EventStream, HandleEvents } from '../../../../eventstream';
+import { Event } from '../../../../eventstore/types';
 import { 
   handleAccountOpened, 
   handleMoneyDeposited, 
@@ -7,23 +8,35 @@ import {
 } from './projector';
 
 export async function startAccountProjectionListener(
-  eventStream: EventStream
+  eventStream: EventStream,
+  connectionString: string
 ): Promise<() => Promise<void>> {
-  const config = createProjectionConfig(
-    ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
-    {
-      'BankAccountOpened': handleAccountOpened,
-      'MoneyDeposited': handleMoneyDeposited,
-      'MoneyWithdrawn': handleMoneyWithdrawn,
-      'MoneyTransferred': handleMoneyTransferred
-    },
-    {
-      batchSize: 10,
-      errorHandler: (error, event) => {
+  const handleEvents: HandleEvents = async (events: Event[]) => {
+    for (const event of events) {
+      try {
+        switch (event.eventType) {
+          case 'BankAccountOpened':
+            await handleAccountOpened(event, connectionString);
+            break;
+          case 'MoneyDeposited':
+            await handleMoneyDeposited(event, connectionString);
+            break;
+          case 'MoneyWithdrawn':
+            await handleMoneyWithdrawn(event, connectionString);
+            break;
+          case 'MoneyTransferred':
+            await handleMoneyTransferred(event, connectionString);
+            break;
+        }
+      } catch (error) {
         console.error(`Error processing ${event.eventType} for account projection:`, error);
       }
     }
-  );
+  };
 
-  return await startProjectionListener(eventStream, config);
+  const subscription = await eventStream.subscribe(handleEvents);
+
+  return async () => {
+    await subscription.unsubscribe();
+  };
 }
