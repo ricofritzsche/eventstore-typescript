@@ -6,6 +6,18 @@ export interface TransferMoneyCommand {
   transferId: string;
 }
 
+export interface AccountState {
+  exists: boolean;
+  balance: number;
+  currency: string;
+}
+
+export interface TransferState {
+  fromAccount: AccountState | null;
+  toAccount: AccountState | null;
+  existingTransferIds: string[];
+}
+
 export interface MoneyTransferredEvent {
   type: 'MoneyTransferred';
   fromAccountId: string;

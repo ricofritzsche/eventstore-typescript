@@ -25,6 +25,11 @@ export type DepositError =
   | { type: 'InvalidCurrency'; message: string }
   | { type: 'DuplicateDeposit'; message: string };
 
+export interface DepositState {
+  account: { currency: string } | null;
+  existingDepositIds: string[];
+}
+
 export type DepositResult = 
   | { success: true; event: MoneyDepositedEvent }
   | { success: false; error: DepositError };

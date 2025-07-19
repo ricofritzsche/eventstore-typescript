@@ -8,7 +8,6 @@ export function buildCteInsertQuery(filter: EventFilter, expectedMaxSeq: number)
   const eventTypesParam = contextParamCount + 1;
   const payloadsParam = contextParamCount + 2;
 
-  //TODO: set event_version from Event property
   return {
     sql: `
     WITH context AS (

@@ -18,12 +18,18 @@ const NON_EXISTENT_EVENT_TYPE = '__NON_EXISTENT__' + Math.random().toString(36);
 
 export interface PostgresEventStoreOptions {
   connectionString?: string;
+  eventStream?: EventStreamNotifier;
+}
+
+export interface EventStreamNotifier {
+  dispatch(events: Event[]): Promise<void>;
 }
 
 
 export class PostgresEventStore implements EventStore {
   private pool: Pool;
   private readonly databaseName: string;
+  private readonly eventStream?: EventStreamNotifier;
 
   constructor(options: PostgresEventStoreOptions = {}) {
     const connectionString = options.connectionString || process.env.DATABASE_URL;
@@ -34,6 +40,9 @@ export class PostgresEventStore implements EventStore {
     this.databaseName = databaseNameFromConnectionString;
 
     this.pool = new Pool({ connectionString });
+    if (options.eventStream) {
+      this.eventStream = options.eventStream;
+    }
   }
 
   async query(filter: EventFilter): Promise<QueryResult> {
@@ -72,6 +81,10 @@ export class PostgresEventStore implements EventStore {
 
       if (result.rowCount === 0) {
         throw new Error('err05: Context changed: events were modified between query() and append()');
+      }
+
+      if (this.eventStream) {
+        await this.eventStream.dispatch(events);
       }
 
     } finally {

@@ -3,11 +3,13 @@
 import * as readline from 'readline';
 import dotenv from 'dotenv';
 import { PostgresEventStore, EventStore } from '../../eventstore';
+import { MemoryEventStream, configureProjector } from '../../eventstream';
 import * as OpenBankAccount from './features/open-bank-account';
 import * as GetAccount from './features/get-account';
 import * as DepositMoney from './features/deposit-money';
 import * as WithdrawMoney from './features/withdraw-money';
 import * as TransferMoney from './features/transfer-money';
+import * as ListAccounts from './features/list-accounts';
 
 dotenv.config();
 
@@ -18,37 +20,54 @@ const rl = readline.createInterface({
 
 class BankingCLI {
   private readonly eventStore: PostgresEventStore;
+  private readonly eventStream: MemoryEventStream | null = null;
+  private stopListener: (() => Promise<void>) | null = null;
 
   constructor() {
-    this.eventStore = new PostgresEventStore();
+    this.eventStream = new MemoryEventStream();
+    this.eventStore = new PostgresEventStore({ eventStream: this.eventStream });
   }
 
   async start() {
     try {
       await this.eventStore.initializeDatabase();
+      
+      const connectionString = process.env.DATABASE_URL;
+      if (!connectionString) {
+        throw new Error('DATABASE_URL environment variable is required');
+      }
+      
+      configureProjector({ connectionString });
+      await ListAccounts.createAccountsTable(connectionString);
+      this.stopListener = await ListAccounts.startAccountProjectionListener(this.eventStream!);
+      
       console.log('🏦 Welcome to the Event-Sourced Banking System!\n');
       await this.showMainMenu();
     } catch (error) {
       console.error('Failed to initialize:', error);
-      await this.eventStore.close();
-      rl.close();
+      await this.cleanup();
       process.exit(1);
     }
   }
 
   private async showMainMenu() {
     console.log('Choose an option:');
+    console.log('0. List All Accounts');
     console.log('1. Open Bank Account');
     console.log('2. Deposit Money');
     console.log('3. Withdraw Money');
     console.log('4. Transfer Money');
     console.log('5. View Account Balance');
     console.log('6. Exit');
+    console.log('99. Rebuild Account Projections');
     console.log();
 
-    const choice = await this.askQuestion('Enter your choice (1-6): ');
+    const choice = await this.askQuestion('Enter your choice (0-6, 99): ');
     
     switch (choice) {
+      case '0':
+        await this.handleListAllAccounts();
+        break;
       case '1':
         await this.handleOpenAccount();
         break;
@@ -66,13 +85,58 @@ class BankingCLI {
         break;
       case '6':
         console.log('Thank you for using the Banking System!');
-        await this.eventStore.close();
-        rl.close();
+        await this.cleanup();
         process.exit(0);
+      case '99':
+        await this.handleRebuildProjections();
+        break;
       default:
         console.log('Invalid choice. Please try again.\n');
         await this.showMainMenu();
     }
+  }
+
+  private async handleListAllAccounts() {
+    console.log('\n📋 All Accounts');
+    
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      console.log('❌ Database connection not configured');
+      await this.continueOrExit();
+      return;
+    }
+
+    try {
+      const result = await ListAccounts.listAccounts(connectionString);
+      
+      if (result.accounts.length === 0) {
+        console.log('No accounts found.');
+      } else {
+        console.log(`\nFound ${result.totalCount} accounts:\n`);
+        
+        result.accounts.forEach((account, index) => {
+          console.log(`${index + 1}. Account ID: ${account.accountId}`);
+          console.log(`   Customer: ${account.customerName}`);
+          console.log(`   Type: ${account.accountType}`);
+          console.log(`   Balance: ${account.balance.toFixed(2)} ${account.currency}`);
+          console.log(`   Opened: ${account.openedAt.toISOString().split('T')[0]}`);
+          console.log(`   Last Updated: ${account.lastUpdatedAt.toISOString().split('T')[0]}`);
+          console.log('');
+        });
+      }
+    } catch (error) {
+      console.log('❌ Error retrieving accounts:', error);
+    }
+
+    await this.continueOrExit();
+  }
+
+  private async handleRebuildProjections() {
+    console.log('\n🔄 Rebuild Account Projections');
+    console.log('This feature is not implemented in the simplified version.');
+    console.log('You can manually clear the accounts table if needed.');
+    
+    await this.continueOrExit();
   }
 
   private async handleOpenAccount() {
@@ -80,7 +144,7 @@ class BankingCLI {
     
     const customerName = await this.askQuestion('Customer Name: ');
     const accountTypeInput = await this.askQuestion('Account Type (checking/savings, default checking): ');
-    const accountType = (accountTypeInput.trim() === '' ? 'checking' : accountTypeInput) as 'checking' | 'savings';
+    const accountType = accountTypeInput.trim() === '' ? 'checking' : accountTypeInput;
     const initialDepositInput = await this.askQuestion('Initial Deposit (optional, default 0): ');
     const initialDeposit = initialDepositInput.trim() === '' ? undefined : parseFloat(initialDepositInput);
     const currencyInput = await this.askQuestion('Currency (USD/EUR/GBP, default USD): ');
@@ -104,6 +168,7 @@ class BankingCLI {
       console.log(`Customer: ${result.event.customerName}`);
       console.log(`Type: ${result.event.accountType}`);
       console.log(`Initial Balance: ${result.event.initialDeposit} ${result.event.currency}`);
+      
     } else {
       console.log('❌ Error:', result.error.message);
     }
@@ -137,6 +202,7 @@ class BankingCLI {
       console.log('✅ Money deposited successfully!');
       console.log(`Amount: ${result.event.amount} ${result.event.currency}`);
       console.log(`Deposit ID: ${result.event.depositId}`);
+      
     } else {
       console.log('❌ Error:', result.error.message);
     }
@@ -169,6 +235,7 @@ class BankingCLI {
       console.log('✅ Money withdrawn successfully!');
       console.log(`Amount: ${result.event.amount} ${result.event.currency}`);
       console.log(`Withdrawal ID: ${result.event.withdrawalId}`);
+      
     } else {
       console.log('❌ Error:', result.error.message);
     }
@@ -205,6 +272,7 @@ class BankingCLI {
       console.log(`To: ${result.event.toAccountId}`);
       console.log(`Amount: ${result.event.amount} ${result.event.currency}`);
       console.log(`Transfer ID: ${result.event.transferId}`);
+      
     } else {
       console.log('❌ Error:', result.error.message);
     }
@@ -242,11 +310,22 @@ class BankingCLI {
       await this.showMainMenu();
     } else {
       console.log('Thank you for using the Banking System!');
-      await this.eventStore.close();
-      rl.close();
+      await this.cleanup();
       process.exit(0);
     }
   }
+
+  private async cleanup() {
+    if (this.stopListener) {
+      await this.stopListener();
+    }
+    if (this.eventStream) {
+      await this.eventStream.close();
+    }
+    await this.eventStore.close();
+    rl.close();
+  }
+
 
   private askQuestion(question: string): Promise<string> {
     return new Promise((resolve) => {
