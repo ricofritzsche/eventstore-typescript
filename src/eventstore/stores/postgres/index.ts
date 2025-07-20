@@ -1,0 +1,1 @@
+export { PostgresEventStore, PostgresEventStoreOptions } from './store';

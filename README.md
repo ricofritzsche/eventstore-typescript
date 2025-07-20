@@ -1,114 +1,62 @@
 # EventStore TypeScript
 
-A comprehensive TypeScript implementation of event sourcing with real-time event streaming and projections. This system provides persistent event storage with automatic notification to event streams for building responsive, event-driven applications.
+A comprehensive TypeScript implementation of event sourcing with real-time event subscriptions and projections. This system provides persistent event storage with automatic notification to subscribers for building responsive, event-sourced applications.
 
 ## High-Level Architecture
 
-The system is built around two core concepts that work together:
+The system is built around a core EventStore with pluggable notification system:
 
-### 🏪 **EventStore** - The Source of Truth
+### **EventStore** - The Source of Truth
 - **Persistent Storage**: Events are immutably stored in PostgreSQL
 - **Query Engine**: Fast retrieval with filtering and payload-based queries
 - **Optimistic Locking**: Ensures consistency without traditional database locks
-- **Auto-Notification**: Automatically dispatches events to connected streams
+- **Auto-Notification**: Automatically notifies subscribers when events are appended
+- **Pluggable Notifiers**: Configurable notification systems (memory, database, etc.)
 
-### 🌊 **EventStream** - The Notification System  
-- **Real-time Processing**: Events flow immediately to interested subscribers
-- **Projection System**: Automatically updates read models (database views)
-- **Configurable Filtering**: Subscribers only receive events they care about
-- **Batched Processing**: Handles high-volume scenarios efficiently
-
-## System Flow
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Application   │    │   EventStore    │    │   EventStream   │
-│                 │    │                 │    │                 │
-│  ┌──────────┐   │    │  ┌──────────┐   │    │  ┌──────────┐   │
-│  │Commands  │ ──┼───▶│  │PostgreSQL│   │    │  │Subscribers│   │
-│  │          │   │    │  │Database  │   │    │  │           │   │
-│  └──────────┘   │    │  └──────────┘   │    │  └──────────┘   │
-│                 │    │       │         │    │       ▲         │
-│  ┌──────────┐   │    │       │         │    │       │         │
-│  │Queries   │ ◀─┼────│       │         │    │       │         │
-│  │          │   │    │       │         │    │       │         │
-│  └──────────┘   │    │       ▼         │    │       │         │
-│                 │    │  ┌──────────┐   │    │  ┌──────────┐   │
-└─────────────────┘    │  │Auto-     │ ──┼───▶│  │Event     │   │
-                       │  │Dispatch  │   │    │  │Filtering │   │
-                       │  └──────────┘   │    │  └──────────┘   │
-                       └─────────────────┘    └─────────────────┘
-                                                       │
-                                                       ▼
-                                              ┌─────────────────┐
-                                              │   Projections   │
-                                              │                 │
-                                              │  ┌──────────┐   │
-                                              │  │Accounts  │   │
-                                              │  │Table     │   │
-                                              │  └──────────┘   │
-                                              │  ┌──────────┐   │
-                                              │  │Users     │   │
-                                              │  │Table     │   │
-                                              │  └──────────┘   │
-                                              │  ┌──────────┐   │
-                                              │  │Other     │   │
-                                              │  │Views     │   │
-                                              │  └──────────┘   │
-                                              └─────────────────┘
-
-1. Application sends commands to EventStore
-2. EventStore saves events to PostgreSQL
-3. EventStore automatically dispatches events to EventStream
-4. EventStream filters and sends events to subscribers
-5. Subscribers (projections) update their read models
-6. Application queries both EventStore and projections
-```
+### **Event Notifiers** - Real-time Processing  
+- **Subscription Management**: Multiple subscribers can listen to the same events
+- **Concurrent Processing**: Events are processed by all subscribers simultaneously
+- **Error Isolation**: If one subscriber fails, others continue processing
+- **Lifecycle Management**: Clean subscription setup and teardown
 
 ## Core Modules
 
-### 📦 **EventStore Module** (`src/eventstore/`)
+### **EventStore Module** (`src/eventstore/`)
 
-**Purpose**: Persistent event storage and retrieval
+**Purpose**: Persistent event storage with real-time notifications
 
 **Key Components**:
-- **`types.ts`** - Core interfaces (Event, EventFilter, EventStore)
-- **`postgres/`** - PostgreSQL implementation with optimized queries
+- **`types.ts`** - Core interfaces (Event, EventStore, EventStreamNotifier)
+- **`stores/postgres/`** - PostgreSQL implementation with subscription support
+- **`notifiers/memory/`** - In-memory notification system (default)
 - **`filter.ts`** - Helper for creating event filters
 
 **Responsibilities**:
 - Store events immutably in PostgreSQL
 - Query events with filtering and payload-based searches
 - Provide optimistic locking for consistency
-- Auto-dispatch events to connected streams
+- Notify subscribers immediately when events are appended
+- Manage subscription lifecycle
 
-### 🌊 **EventStream Module** (`src/eventstream/`)
+### **Examples** (`src/examples/banking/`)
 
-**Purpose**: Real-time event processing and projections
-
-**Key Components**:
-- **`types.ts`** - Stream interfaces (EventStream, StreamSubscription)
-- **`memory.ts`** - In-memory stream implementation
-- **`projection.ts`** - Projection system with database integration
-- **`stream.ts`** - Event filtering and subscription utilities
-
-**Responsibilities**:
-- Receive events from EventStore
-- Filter events for specific subscribers
-- Manage subscriptions and batching
-- Provide projection infrastructure
-
-### 🏦 **Examples** (`src/examples/banking/`)
-
-**Purpose**: Feature-sliced banking application demonstrating usage
+**Purpose**: Feature-sliced banking application demonstrating real-world usage
 
 **Key Components**:
-- **`features/`** - Individual feature slices (accounts, deposits, etc.)
+- **`features/`** - Individual feature slices with projections
 - **`cli.ts`** - Interactive command-line interface
 - **Feature Structure**:
   - `core.ts` - Pure business logic
   - `shell.ts` - EventStore integration
   - `types.ts` - Domain types and interfaces
+  - `projector.ts` - Database projection logic
+  - `listener.ts` - Event subscription handlers
+
+**Banking Features**:
+- **Account Management**: Open accounts, deposits, withdrawals, transfers
+- **Account Projections**: Real-time account balance updates
+- **Analytics Projections**: Monthly account opening statistics
+- **Rebuild Functionality**: Projection recovery from event history
 
 ## Event Flow Diagram
 
@@ -117,61 +65,76 @@ The system is built around two core concepts that work together:
 │                                Event Flow                                       │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
-│  ┌─────────────┐  append()  ┌─────────────┐  dispatch()  ┌─────────────┐      │
-│  │   Command   │ ─────────▶ │ EventStore  │ ────────────▶ │ EventStream │      │
-│  │  Handler    │            │             │              │             │      │
-│  └─────────────┘            └─────────────┘              └─────────────┘      │
-│                                     │                            │             │
-│                                     ▼                            ▼             │
-│  ┌─────────────┐            ┌─────────────┐              ┌─────────────┐      │
-│  │  PostgreSQL │            │   Events    │              │   Filtered  │      │
-│  │  Database   │            │   Saved     │              │   Events    │      │
-│  └─────────────┘            └─────────────┘              └─────────────┘      │
-│                                                                   │             │
-│                                                                   ▼             │
-│                                                          ┌─────────────┐      │
-│                                                          │ Projection  │      │
-│                                                          │ Subscribers │      │
-│                                                          └─────────────┘      │
-│                                                                   │             │
-│                                                                   ▼             │
-│                                                          ┌─────────────┐      │
-│                                                          │ Read Models │      │
-│                                                          │   Updated   │      │
-│                                                          └─────────────┘      │
+│  ┌─────────────┐  append()  ┌─────────────┐   notify()   ┌─────────────┐       │
+│  │   Command   │ ─────────▶ │ EventStore  │ ────────────▶ │   Event     │       │
+│  │  Handler    │            │             │              │  Notifier   │       │
+│  └─────────────┘            └─────────────┘              └─────────────┘       │
+│                                     │                            │              │
+│                                     ▼                            ▼              │
+│  ┌─────────────┐            ┌─────────────┐              ┌─────────────┐       │
+│  │  PostgreSQL │            │   Events    │              │  Multiple   │       │
+│  │  Database   │            │   Saved     │              │ Subscribers │       │
+│  └─────────────┘            └─────────────┘              └─────────────┘       │
+│                                                                   │              │
+│                                                                   ▼              │
+│                                                          ┌─────────────┐       │
+│  ┌─────────────┐                                         │ Concurrent  │       │
+│  │  Queries    │ ◀───────────────────────────────────────│ Processing  │       │
+│  │             │                                         │             │       │
+│  └─────────────┘                                         └─────────────┘       │
+│                                                                   │              │
+│                                                                   ▼              │
+│                                                          ┌─────────────┐       │
+│                                                          │ Projections │       │
+│                                                          │   Updated   │       │
+│                                                          └─────────────┘       │
 │                                                                                 │
+│                          Real-time, concurrent event processing                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Projection System
+## Subscription System
 
-The projection system automatically keeps read models synchronized with events:
+The subscription system enables real-time, concurrent processing:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                            Projection Architecture                              │
+│                         Subscription Architecture                               │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
-│  ┌─────────────┐              ┌─────────────┐              ┌─────────────┐     │
-│  │   Events    │              │ Projection  │              │    Read     │     │
-│  │             │              │   System    │              │   Models    │     │
-│  │ ┌─────────┐ │              │             │              │             │     │
-│  │ │Account  │ │──────────────│ ┌─────────┐ │──────────────│ ┌─────────┐ │     │
-│  │ │Opened   │ │              │ │Account  │ │              │ │Accounts │ │     │
-│  │ └─────────┘ │              │ │Listener │ │              │ │ Table   │ │     │
-│  │             │              │ └─────────┘ │              │ └─────────┘ │     │
-│  │ ┌─────────┐ │              │             │              │             │     │
-│  │ │Money    │ │──────────────│ ┌─────────┐ │──────────────│ ┌─────────┐ │     │
-│  │ │Deposited│ │              │ │User     │ │              │ │Users    │ │     │
-│  │ └─────────┘ │              │ │Listener │ │              │ │ Table   │ │     │
-│  │             │              │ └─────────┘ │              │ └─────────┘ │     │
-│  │ ┌─────────┐ │              │             │              │             │     │
-│  │ │User     │ │──────────────│ ┌─────────┐ │──────────────│ ┌─────────┐ │     │
-│  │ │Created  │ │              │ │Other    │ │              │ │Other    │ │     │
-│  │ └─────────┘ │              │ │Listeners│ │              │ │ Views   │ │     │
-│  │             │              │ └─────────┘ │              │ └─────────┘ │     │
-│  └─────────────┘              └─────────────┘              └─────────────┘     │
+│                              ┌─────────────┐                                   │
+│                              │ EventStore  │                                   │
+│                              │             │                                   │
+│                              │ ┌─────────┐ │                                   │
+│                              │ │New Event│ │                                   │
+│                              │ │Appended │ │                                   │
+│                              │ └─────────┘ │                                   │
+│                              └──────┬──────┘                                   │
+│                                     │                                          │
+│                                     ▼                                          │
+│                              ┌─────────────┐                                   │
+│                              │Event        │                                   │
+│                              │Notifier     │                                   │
+│                              │(Memory)     │                                   │
+│                              └──────┬──────┘                                   │
+│                                     │                                          │
+│                    ┌────────────────┼────────────────┐                        │
+│                    │                │                │                        │
+│                    ▼                ▼                ▼                        │
+│            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
+│            │ Account     │  │ Analytics   │  │   Other     │                 │
+│            │ Projection  │  │ Projection  │  │ Subscribers │                 │
+│            │ Subscriber  │  │ Subscriber  │  │             │                 │
+│            └─────────────┘  └─────────────┘  └─────────────┘                 │
+│                    │                │                │                        │
+│                    ▼                ▼                ▼                        │
+│            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
+│            │  accounts   │  │account_     │  │   Custom    │                 │
+│            │   table     │  │ analytics   │  │   Logic     │                 │
+│            │             │  │   table     │  │             │                 │
+│            └─────────────┘  └─────────────┘  └─────────────┘                 │
 │                                                                                 │
+│              Concurrent, independent processing of the same events             │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -182,131 +145,70 @@ The projection system automatically keeps read models synchronized with events:
 # Install dependencies
 npm install
 
-# Start PostgreSQL
-docker run --name eventstore-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=eventstore -p 5432:5432 -d postgres:15
+# Start Postgres
+docker run --name eventstore-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bank -p 5432:5432 -d postgres:15
 
 # Set connection string
-export DATABASE_URL="postgres://postgres:postgres@localhost:5432/eventstore"
+export DATABASE_URL="postgres://postgres:postgres@localhost:5432/bank"
 ```
 
 ### 2. Basic Usage
 ```typescript
-import { PostgresEventStore } from './src/eventstore';
-import { MemoryEventStream, configureProjector, startProjectionListener } from './src/eventstream';
+import { PostgresEventStore, createFilter } from './src/eventstore';
 
-// Connect EventStore and EventStream
-const eventStream = new MemoryEventStream();
-const eventStore = new PostgresEventStore({ eventStream });
+// Create EventStore with default MemoryEventStreamNotifier
+const eventStore = new PostgresEventStore();
 await eventStore.initializeDatabase();
 
-// Setup projections
-configureProjector({ 
-  connectionString: process.env.DATABASE_URL! 
-});
-
-// Start projection listener
-const stopListener = await startProjectionListener(eventStream, {
-  eventTypes: ['UserRegistered', 'UserUpdated'],
-  handlers: {
-    'UserRegistered': async (event) => {
-      // Update users table
-      await insertUser(event.payload);
-    },
-    'UserUpdated': async (event) => {
-      // Update users table
-      await updateUser(event.payload);
+// Subscribe to events for real-time processing
+const subscription = await eventStore.subscribe(async (events) => {
+  for (const event of events) {
+    console.log('Processing event:', event.eventType);
+    
+    // Update projections, analytics, send notifications, etc.
+    switch (event.eventType) {
+      case 'BankAccountOpened':
+        await updateAccountProjection(event);
+        await updateAnalytics(event);
+        break;
+      case 'MoneyDeposited':
+        await updateAccountBalance(event);
+        break;
     }
   }
 });
+````
 
-// Store events - projections update automatically
-await eventStore.append([{
-  eventType: 'UserRegistered',
-  payload: { userId: '123', email: 'user@example.com' }
-}]);
-```
+
 
 ### 3. Run Banking Example
 ```bash
 npm run example:banking
 ```
 
-## Key Features
+**Features in Banking CLI**:
+- **0-6**: Banking operations (open account, deposit, withdraw, transfer, view balance)
+- **7**: View analytics (monthly account opening statistics)
+- **98**: Rebuild analytics projections from event history
+- **99**: Rebuild account projections from event history
 
-### 🔒 **Optimistic Locking**
-Ensures consistency without traditional database locks by validating context hasn't changed:
 
-```typescript
-// Query with context
-const filter = createFilter(['BankAccountOpened'], [{ accountId: 'acc-123' }]);
-const result = await eventStore.query(filter);
 
-// Business logic
-const events = processCommand(result.events);
-
-// Append with context validation
-await eventStore.append(events, filter, result.maxSequenceNumber);
-```
-
-### 🎯 **Payload-Based Querying**
-Precise event filtering using PostgreSQL JSONB operators:
+### 4. Pluggable Notifiers
+Replace the notification system with your own:
 
 ```typescript
-// Filter by event content
-const filter = createFilter(
-  ['MoneyDeposited', 'MoneyWithdrawn'],
-  [{ accountId: 'acc-123', currency: 'USD' }]
-);
-const events = await eventStore.query(filter);
+import { EventStreamNotifier } from './src/eventstore/types';
+
+class DatabaseEventStreamNotifier implements EventStreamNotifier {
+  // Custom implementation using database triggers, message queues, etc.
+}
+
+const eventStore = new PostgresEventStore({
+  notifier: new DatabaseEventStreamNotifier()
+});
 ```
 
-### ⚡ **Real-time Projections**
-Automatically update read models when events occur:
-
-```typescript
-// Define projection
-const config = createProjectionConfig(
-  ['UserRegistered', 'UserUpdated'],
-  {
-    'UserRegistered': async (event) => {
-      await insertUser(event.payload);
-    },
-    'UserUpdated': async (event) => {
-      await updateUser(event.payload);
-    }
-  }
-);
-
-// Start listening - updates happen automatically
-await startProjectionListener(eventStream, config);
-```
-
-### 🏗️ **Feature-Sliced Architecture**
-Organize code by business capabilities:
-
-```
-features/
-├── user-management/
-│   ├── core.ts          # Pure business logic
-│   ├── shell.ts         # EventStore integration
-│   └── types.ts         # Domain types
-├── account-management/
-│   ├── core.ts
-│   ├── shell.ts
-│   └── types.ts
-└── list-accounts/       # Projection example
-    ├── projector.ts     # Database operations
-    ├── listener.ts      # Event handling
-    └── query.ts         # Read queries
-```
-
-## Performance Characteristics
-
-- **Storage**: PostgreSQL with optimized JSONB indexing
-- **Querying**: GIN indexes for fast payload-based searches
-- **Streaming**: Batched event processing for high throughput
-- **Projections**: Configurable batch sizes and error handling
-- **Connections**: Connection pooling for database efficiency
 
 ## Testing
 
@@ -319,13 +221,16 @@ npm run test:unit
 npm run test:integration
 ```
 
-## Contributing
+**Test Coverage**:
+- EventStore core functionality
+- Subscription and notification systems
+- Banking domain logic
+- Projection systems
+- Error handling and edge cases
 
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Ensure all tests pass
-5. Submit a pull request
+
+
+
 
 ## License
 

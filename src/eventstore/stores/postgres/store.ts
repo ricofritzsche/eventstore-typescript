@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { Event, EventStore, EventFilter, QueryResult } from '../types';
+import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
 import { buildCteInsertQuery } from './insert';
 import { buildContextQuery } from './query';
 import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform';
@@ -12,24 +12,26 @@ import {
   changeDatabaseInConnectionString,
   getDatabaseNameFromConnectionString
 } from './schema';
-import { createFilter } from '../filter';
+import { createFilter } from '../../filter';
+import { MemoryEventStreamNotifier } from '../../notifiers';
 
 const NON_EXISTENT_EVENT_TYPE = '__NON_EXISTENT__' + Math.random().toString(36);
 
 export interface PostgresEventStoreOptions {
   connectionString?: string;
-  eventStream?: EventStreamNotifier;
-}
-
-export interface EventStreamNotifier {
-  dispatch(events: Event[]): Promise<void>;
+  notifier?: EventStreamNotifier;
 }
 
 
+/**
+ * Represents an implementation of an event store using Postgres as the underlying database.
+ * Provides functionality to append events, query events, and manage database initialization.
+ * Additionally, it facilitates event subscriptions through an event stream notifier mechanism.
+ */
 export class PostgresEventStore implements EventStore {
   private pool: Pool;
   private readonly databaseName: string;
-  private readonly eventStream?: EventStreamNotifier;
+  private readonly notifier: EventStreamNotifier;
 
   constructor(options: PostgresEventStoreOptions = {}) {
     const connectionString = options.connectionString || process.env.DATABASE_URL;
@@ -40,9 +42,8 @@ export class PostgresEventStore implements EventStore {
     this.databaseName = databaseNameFromConnectionString;
 
     this.pool = new Pool({ connectionString });
-    if (options.eventStream) {
-      this.eventStream = options.eventStream;
-    }
+    // This is the "Default" EventStreamNotifier, but allow override
+    this.notifier = options.notifier ?? new MemoryEventStreamNotifier();
   }
 
   async query(filter: EventFilter): Promise<QueryResult> {
@@ -58,6 +59,10 @@ export class PostgresEventStore implements EventStore {
     } finally {
       client.release();
     }
+  }
+
+  async subscribe(handle: HandleEvents): Promise<EventSubscription> {
+    return this.notifier.subscribe(handle);
   }
 
 
@@ -83,9 +88,9 @@ export class PostgresEventStore implements EventStore {
         throw new Error('Context changed: events were modified between query() and append()');
       }
 
-      if (this.eventStream) {
-        await this.eventStream.dispatch(events);
-      }
+      // Convert inserted records to EventRecord[] and notify subscribers
+      const insertedEvents = mapRecordsToEvents(result);
+      await this.notifier.notify(insertedEvents);
 
     } finally {
       client.release();
@@ -98,6 +103,7 @@ export class PostgresEventStore implements EventStore {
   }
 
   async close(): Promise<void> {
+    await this.notifier.close();
     await this.pool.end();
   }
 

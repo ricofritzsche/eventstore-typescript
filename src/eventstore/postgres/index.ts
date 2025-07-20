@@ -1,1 +1,0 @@
-export { PostgresEventStore, PostgresEventStoreOptions, EventStreamNotifier } from './store';
