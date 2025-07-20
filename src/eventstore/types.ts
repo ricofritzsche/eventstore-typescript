@@ -24,9 +24,6 @@ export interface EventStore {
   subscribe(handle: HandleEvents): Promise<EventSubscription>;
 }
 
-export interface EventStoreOptions {
-}
-
 // Import types from the event stream for subscription functionality
 export type HandleEvents = (events: EventRecord[]) => Promise<void>;
 
