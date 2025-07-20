@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
 import * as readline from 'readline';
-import dotenv from 'dotenv';
-import { PostgresEventStore, EventStore } from '../../eventstore';
-import { MemoryEventStream } from '../../eventstream';
+import * as dotenv from 'dotenv';
+import { PostgresEventStore } from '../../eventstore';
 import * as OpenBankAccount from './features/open-bank-account';
 import * as GetAccount from './features/get-account';
 import * as DepositMoney from './features/deposit-money';
 import * as WithdrawMoney from './features/withdraw-money';
 import * as TransferMoney from './features/transfer-money';
 import * as ListAccounts from './features/list-accounts';
+import * as Analytics from './features/analytics';
 
 dotenv.config();
 
@@ -20,12 +20,11 @@ const rl = readline.createInterface({
 
 class BankingCLI {
   private readonly eventStore: PostgresEventStore;
-  private readonly eventStream: MemoryEventStream | null = null;
-  private stopListener: (() => Promise<void>) | null = null;
+  private stopAccountsListener: (() => Promise<void>) | null = null;
+  private stopAnalyticsListener: (() => Promise<void>) | null = null;
 
   constructor() {
-    this.eventStream = new MemoryEventStream();
-    this.eventStore = new PostgresEventStore({ eventStream: this.eventStream });
+    this.eventStore = new PostgresEventStore();
   }
 
   async start() {
@@ -38,7 +37,10 @@ class BankingCLI {
       }
       
       await ListAccounts.createAccountsTable(connectionString);
-      this.stopListener = await ListAccounts.startAccountProjectionListener(this.eventStream!, connectionString);
+      await Analytics.createAnalyticsTable(connectionString);
+      
+      this.stopAccountsListener = await ListAccounts.startAccountProjectionListener(this.eventStore, connectionString);
+      this.stopAnalyticsListener = await Analytics.startAnalyticsListener(this.eventStore, connectionString);
       
       console.log('🏦 Welcome to the Event-Sourced Banking System!\n');
       await this.showMainMenu();
@@ -58,10 +60,12 @@ class BankingCLI {
     console.log('4. Transfer Money');
     console.log('5. View Account Balance');
     console.log('6. Exit');
+    console.log('7. View Account Analytics');
+    console.log('98. Rebuild Analytics Projections');
     console.log('99. Rebuild Account Projections');
     console.log();
 
-    const choice = await this.askQuestion('Enter your choice (0-6, 99): ');
+    const choice = await this.askQuestion('Enter your choice (0-7, 98, 99): ');
     
     switch (choice) {
       case '0':
@@ -86,6 +90,12 @@ class BankingCLI {
         console.log('Thank you for using the Banking System!');
         await this.cleanup();
         process.exit(0);
+      case '7':
+        await this.handleViewAnalytics();
+        break;
+      case '98':
+        await this.handleRebuildAnalytics();
+        break;
       case '99':
         await this.handleRebuildProjections();
         break;
@@ -106,7 +116,7 @@ class BankingCLI {
     }
 
     try {
-      const result = await ListAccounts.listAccounts(connectionString);
+      const result = await ListAccounts.queryHandler(connectionString);
       
       if (result.accounts.length === 0) {
         console.log('No accounts found.');
@@ -130,10 +140,60 @@ class BankingCLI {
     await this.continueOrExit();
   }
 
+  private async handleRebuildAnalytics() {
+    console.log('\n🔄 Rebuild Analytics Projections');
+    console.log('⚠️  This will clear all existing analytics data and replay account opening events.');
+    
+    const confirm = await this.askQuestion('Are you sure you want to proceed? (y/N): ');
+    
+    if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
+      console.log('❌ Analytics rebuild cancelled');
+      await this.continueOrExit();
+      return;
+    }
+    
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      console.log('❌ Database connection not configured');
+      await this.continueOrExit();
+      return;
+    }
+
+    try {
+      console.log('🚀 Starting analytics rebuild...');
+      await Analytics.rebuildAnalyticsProjections(this.eventStore, connectionString);
+    } catch (error) {
+      console.log('❌ Error rebuilding analytics:', error);
+    }
+    
+    await this.continueOrExit();
+  }
+
   private async handleRebuildProjections() {
     console.log('\n🔄 Rebuild Account Projections');
-    console.log('This feature is not implemented in the simplified version.');
-    console.log('You can manually clear the accounts table if needed.');
+    console.log('⚠️  This will clear all existing account data and replay all events.');
+    
+    const confirm = await this.askQuestion('Are you sure you want to proceed? (y/N): ');
+    
+    if (confirm.toLowerCase() !== 'y' && confirm.toLowerCase() !== 'yes') {
+      console.log('❌ Rebuild cancelled');
+      await this.continueOrExit();
+      return;
+    }
+    
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      console.log('❌ Database connection not configured');
+      await this.continueOrExit();
+      return;
+    }
+
+    try {
+      console.log('🚀 Starting projection rebuild...');
+      await ListAccounts.rebuildAccountProjections(this.eventStore, connectionString);
+    } catch (error) {
+      console.log('❌ Error rebuilding projections:', error);
+    }
     
     await this.continueOrExit();
   }
@@ -300,6 +360,53 @@ class BankingCLI {
     await this.continueOrExit();
   }
 
+  private async handleViewAnalytics() {
+    console.log('\n📈 Account Opening Analytics');
+    
+    const monthsInput = await this.askQuestion('How many recent months to show? (default: 12): ');
+    const months = monthsInput.trim() === '' ? 12 : parseInt(monthsInput);
+    
+    if (isNaN(months) || months <= 0) {
+      console.log('❌ Error: Please enter a valid positive number');
+      await this.continueOrExit();
+      return;
+    }
+    
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      console.log('❌ Database connection not configured');
+      await this.continueOrExit();
+      return;
+    }
+
+    try {
+      const result = await Analytics.queryHandler(connectionString, { months });
+      
+      if (result.monthlyStats.length === 0) {
+        console.log('No analytics data found.');
+      } else {
+        console.log(`\n📊 Account Opening Statistics (Last ${months} months):\n`);
+        
+        let totalOpenings = 0;
+        result.monthlyStats.forEach((stat, index) => {
+          console.log(`${index + 1}. ${stat.monthName} ${stat.year}`);
+          console.log(`   New Accounts: ${stat.accountOpenings}`);
+          console.log(`   Total Accounts: ${stat.totalAccounts}`);
+          console.log('');
+          totalOpenings += stat.accountOpenings;
+        });
+        
+        console.log(`📊 Summary:`);
+        console.log(`   Total New Accounts: ${totalOpenings}`);
+        console.log(`   Average per Month: ${(totalOpenings / result.monthlyStats.length).toFixed(1)}`);
+      }
+    } catch (error) {
+      console.log('❌ Error retrieving analytics:', error);
+    }
+
+    await this.continueOrExit();
+  }
+
   private async continueOrExit() {
     console.log();
     const choice = await this.askQuestion('Continue? (Y/n): ');
@@ -315,11 +422,11 @@ class BankingCLI {
   }
 
   private async cleanup() {
-    if (this.stopListener) {
-      await this.stopListener();
+    if (this.stopAccountsListener) {
+      await this.stopAccountsListener();
     }
-    if (this.eventStream) {
-      await this.eventStream.close();
+    if (this.stopAnalyticsListener) {
+      await this.stopAnalyticsListener();
     }
     await this.eventStore.close();
     rl.close();

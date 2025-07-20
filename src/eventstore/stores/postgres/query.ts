@@ -1,4 +1,4 @@
-import { EventFilter } from '../types';
+import { EventFilter } from '../../types';
 
 export function buildContextQuery(filter: EventFilter): { sql: string; params: unknown[] } {
   let query = 'SELECT * FROM events WHERE event_type = ANY($1)';

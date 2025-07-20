@@ -1,5 +1,5 @@
 import { buildCteInsertQuery } from '../insert';
-import { createFilter } from '../../filter';
+import { createFilter } from '../../../filter';
 
 describe('Insert Query Builder', () => {
   describe('buildCteInsertQuery', () => {
@@ -19,6 +19,7 @@ describe('Insert Query Builder', () => {
     SELECT unnest($2::text[]), unnest($3::jsonb[])
     FROM context
     WHERE COALESCE(max_seq, 0) = 5
+    RETURNING *
   `.trim());
       expect(result.params).toEqual([['AccountCreated']]);
     });

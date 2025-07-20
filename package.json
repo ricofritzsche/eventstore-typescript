@@ -15,6 +15,8 @@
     "clean": "rm -rf dist",
     "dev": "ts-node src/index.ts",
     "example": "ts-node src/examples/banking/cli.ts",
+    "example:banking": "ts-node src/examples/banking/cli.ts",
+    "simple": "ts-node simple.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

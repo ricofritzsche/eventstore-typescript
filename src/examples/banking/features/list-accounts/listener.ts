@@ -1,5 +1,4 @@
-import { EventStream, HandleEvents } from '../../../../eventstream';
-import { Event } from '../../../../eventstore/types';
+import { EventRecord, EventStore, HandleEvents } from '../../../../eventstore/types';
 import { 
   handleAccountOpened, 
   handleMoneyDeposited, 
@@ -7,11 +6,20 @@ import {
   handleMoneyTransferred 
 } from './projector';
 
+/**
+ * Starts the account projection listener which processes incoming events from the event store and
+ * updates the account projection in response to different event types such as opening an account,
+ * depositing money, withdrawing money, or transferring money.
+ *
+ * @param {EventStore} eventStore - The event store used to subscribe and listen for events.
+ * @param {string} connectionString - The database connection string used for handling account projection updates.
+ * @return {Promise<() => Promise<void>>} A promise that resolves to a function which can be called to stop the listener by unsubscribing from the event store.
+ */
 export async function startAccountProjectionListener(
-  eventStream: EventStream,
+  eventStore: EventStore,
   connectionString: string
 ): Promise<() => Promise<void>> {
-  const handleEvents: HandleEvents = async (events: Event[]) => {
+  const handleEvents: HandleEvents = async (events: EventRecord[]) => {
     for (const event of events) {
       try {
         switch (event.eventType) {
@@ -34,7 +42,7 @@ export async function startAccountProjectionListener(
     }
   };
 
-  const subscription = await eventStream.subscribe(handleEvents);
+  const subscription = await eventStore.subscribe(handleEvents);
 
   return async () => {
     await subscription.unsubscribe();

@@ -1,5 +1,5 @@
 import { buildContextQuery, buildContextVersionQuery } from '../query';
-import { createFilter } from '../../filter';
+import { createFilter } from '../../../filter';
 
 describe('Query Builder', () => {
   describe('buildContextQuery', () => {

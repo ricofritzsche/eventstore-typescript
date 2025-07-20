@@ -6,13 +6,7 @@ export interface Account {
   currency: string;
   openedAt: Date;
   lastUpdatedAt: Date;
-}
-
-export interface AccountsQuery {
-  accountId?: string;
-  customerName?: string;
-  accountType?: 'checking' | 'savings';
-  currency?: string;
+  lastEventSequenceNumber: number;
 }
 
 export interface AccountsResult {

@@ -1,4 +1,4 @@
-import { EventFilter } from '../types';
+import { EventFilter } from '../../types';
 import { buildContextVersionQuery } from './query';
 
 export function buildCteInsertQuery(filter: EventFilter, expectedMaxSeq: number): { sql: string, params: unknown[] } {
@@ -19,6 +19,7 @@ export function buildCteInsertQuery(filter: EventFilter, expectedMaxSeq: number)
     SELECT unnest($${eventTypesParam}::text[]), unnest($${payloadsParam}::jsonb[])
     FROM context
     WHERE COALESCE(max_seq, 0) = ${expectedMaxSeq}
+    RETURNING *
   `,
     params: contextVersionQueryConditions.params
   };

@@ -1,5 +1,5 @@
 import { QueryResult } from 'pg';
-import { EventRecord, Event } from '../types';
+import { EventRecord, Event } from '../../types';
 
 
 export function deserializeEvent(row: any): EventRecord {
