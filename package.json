@@ -29,12 +29,19 @@
   },
   "keywords": [
     "eventstore",
+    "event-sourcing",
     "eventsourcing",
-    "aggregateless",
     "typescript",
-    "events"
+    "events",
+    "postgresql",
+    "postgres",
+    "real-time",
+    "subscriptions",
+    "projections",
+    "event-driven",
+    "cqrs"
   ],
-  "author": "Rico Fritzsche",
+  "author": "Rico Fritzsche, Ralf Westphal",
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^29.5.0",
