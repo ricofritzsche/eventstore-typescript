@@ -197,7 +197,7 @@ describe('MemoryEventStreamNotifier', () => {
       await notifier.notify(events);
       
       expect(consoleSpy).toHaveBeenCalledWith(
-        `Error notifying subscription ${subscription.id}:`,
+        `notifiers-memory-err01: Error notifying subscription ${subscription.id}:`,
         expect.any(Error)
       );
       
