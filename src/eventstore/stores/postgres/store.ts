@@ -35,10 +35,10 @@ export class PostgresEventStore implements EventStore {
 
   constructor(options: PostgresEventStoreOptions = {}) {
     const connectionString = options.connectionString || process.env.DATABASE_URL;
-    if (!connectionString) throw new Error('err02: Connection string missing. DATABASE_URL environment variable not set.');
+    if (!connectionString) throw new Error('eventstore-stores-postgres-err02: Connection string missing. DATABASE_URL environment variable not set.');
 
     const databaseNameFromConnectionString = getDatabaseNameFromConnectionString(connectionString);
-    if (!databaseNameFromConnectionString) throw new Error('err03: Database name not found. Invalid connection string: ' + connectionString);
+    if (!databaseNameFromConnectionString) throw new Error('eventstore-stores-postgres-err03: Database name not found. Invalid connection string: ' + connectionString);
     this.databaseName = databaseNameFromConnectionString;
 
     this.pool = new Pool({ connectionString });
@@ -75,7 +75,7 @@ export class PostgresEventStore implements EventStore {
     }
 
     if (expectedMaxSequenceNumber === undefined)
-      throw new Error('err04: Expected max sequence number is required when a filter is provided!')
+      throw new Error('eventstore-stores-postgres-err04: Expected max sequence number is required when a filter is provided!')
 
     const client = await this.pool.connect();
     try {
@@ -85,7 +85,7 @@ export class PostgresEventStore implements EventStore {
       const result = await client.query(cteQuery.sql, params);
 
       if (result.rowCount === 0) {
-        throw new Error('err05: Context changed: events were modified between query() and append()');
+        throw new Error('eventstore-stores-postgres-err05: Context changed: events were modified between query() and append()');
       }
 
       // Convert inserted records to EventRecord[] and notify subscribers
@@ -121,7 +121,7 @@ export class PostgresEventStore implements EventStore {
       console.log(`Database created: ${this.databaseName}`);
     } catch (err: any) {
       if (err.code === '42P04') {
-        console.log(`err06: Database already exists: ${this.databaseName}`);
+        console.log(`eventstore-stores-postgres-err06: Database already exists: ${this.databaseName}`);
       } else {
         throw err;
       }

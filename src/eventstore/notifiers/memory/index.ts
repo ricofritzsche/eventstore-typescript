@@ -30,7 +30,7 @@ export class MemoryEventStreamNotifier implements EventStreamNotifier {
       try {
         await subscription.handle(events);
       } catch (error) {
-        console.error(`Error notifying subscription ${subscription.id}:`, error);
+        console.error(`notifiers-memory-err01: Error notifying subscription ${subscription.id}:`, error);
       }
     });
 
