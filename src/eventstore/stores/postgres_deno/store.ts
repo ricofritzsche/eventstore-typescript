@@ -1,7 +1,7 @@
 import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types.ts';
-import { buildCteInsertQuery } from './insert_deno.ts';
-import { buildContextQuery } from './query_deno.ts';
-import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform_deno.ts';
+import { buildCteInsertQuery } from './insert.ts';
+import { buildContextQuery } from './query.ts';
+import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform.ts';
 import { 
   CREATE_EVENTS_TABLE, 
   CREATE_EVENT_TYPE_INDEX, 
@@ -10,11 +10,11 @@ import {
   createDatabaseQuery,
   changeDatabaseInConnectionString,
   getDatabaseNameFromConnectionString
-} from './schema_deno.ts';
-import { createFilter } from '../../filter_deno.ts';
-import { MemoryEventStreamNotifier } from '../../notifiers/memory/mod.ts';
+} from './schema.ts';
+import { createFilter } from '../../filter.ts';
+import { MemoryEventStreamNotifier } from '../../notifiers/memory/index.ts';
 
-// Universal database interfaces
+// Universal database interfaces for Deno
 interface UniversalClient {
   query(sql: string, params?: any[]): Promise<any>;
   release(): void;
@@ -27,11 +27,23 @@ interface UniversalPool {
 
 // Runtime detection and dynamic pool creation
 async function createUniversalPool(connectionString: string): Promise<UniversalPool> {
-  // @ts-ignore: Check for Deno runtime
+  // @ts-ignore: Deno global check
   if (typeof Deno !== 'undefined') {
-    // Deno environment - use postgres from npm
-    const { Pool } = await import('postgres');
-    return new Pool(connectionString);
+    // Deno environment - use postgres library
+    const postgres = await import('postgres');
+    const sql = postgres.default(connectionString);
+    
+    // Adapt postgres client to UniversalPool interface
+    return {
+      connect: async () => ({
+        query: async (sqlQuery: string, params?: any[]) => {
+          const result = await sql.unsafe(sqlQuery, params || []);
+          return { rows: result, rowCount: result.length };
+        },
+        release: () => {} // postgres library handles connections automatically
+      }),
+      end: async () => await sql.end()
+    };
   } else {
     // Node.js environment - use pg
     const { Pool } = await import('pg');
@@ -46,12 +58,8 @@ export interface PostgresEventStoreOptions {
   notifier?: EventStreamNotifier;
 }
 
-
 /**
- * Represents an implementation of an event store using Postgres as the underlying database.
- * Provides functionality to append events, query events, and manage database initialization.
- * Additionally, it facilitates event subscriptions through an event stream notifier mechanism.
- * Works in both Node.js and Deno environments.
+ * Universal PostgreSQL event store implementation for Deno with runtime detection.
  */
 export class PostgresEventStore implements EventStore {
   private pool: UniversalPool;
@@ -60,17 +68,24 @@ export class PostgresEventStore implements EventStore {
   private readonly connectionString: string;
 
   constructor(options: PostgresEventStoreOptions = {}) {
-    // @ts-ignore: Deno and Node.js env handling
-    this.connectionString = options.connectionString || (typeof process !== 'undefined' ? process.env?.DATABASE_URL : Deno.env.get('DATABASE_URL')) || '';
-    if (!this.connectionString) throw new Error('eventstore-stores-postgres-err02: Connection string missing. DATABASE_URL environment variable not set.');
+    // @ts-ignore: Universal environment handling
+    this.connectionString = options.connectionString || 
+      (typeof process !== 'undefined' ? process.env?.DATABASE_URL : 
+       // @ts-ignore: Deno global
+       typeof Deno !== 'undefined' ? Deno.env.get('DATABASE_URL') : '') || '';
+    
+    if (!this.connectionString) {
+      throw new Error('eventstore-stores-postgres-err02: Connection string missing. DATABASE_URL environment variable not set.');
+    }
 
     const databaseNameFromConnectionString = getDatabaseNameFromConnectionString(this.connectionString);
-    if (!databaseNameFromConnectionString) throw new Error('eventstore-stores-postgres-err03: Database name not found. Invalid connection string: ' + this.connectionString);
+    if (!databaseNameFromConnectionString) {
+      throw new Error('eventstore-stores-postgres-err03: Database name not found. Invalid connection string: ' + this.connectionString);
+    }
     this.databaseName = databaseNameFromConnectionString;
 
     // Pool will be initialized lazily
     this.pool = null as any;
-    // This is the "Default" EventStreamNotifier, but allow override
     this.notifier = options.notifier ?? new MemoryEventStreamNotifier();
   }
 
@@ -101,8 +116,7 @@ export class PostgresEventStore implements EventStore {
     return this.notifier.subscribe(handle);
   }
 
-
-  async append(events: Event[], filter?: EventFilter,  expectedMaxSequenceNumber?: number): Promise<void> {
+  async append(events: Event[], filter?: EventFilter, expectedMaxSequenceNumber?: number): Promise<void> {
     if (events.length === 0) return;
 
     if (filter === undefined || filter.eventTypes.length === 0) {
@@ -110,8 +124,9 @@ export class PostgresEventStore implements EventStore {
       expectedMaxSequenceNumber = 0;
     }
 
-    if (expectedMaxSequenceNumber === undefined)
-      throw new Error('eventstore-stores-postgres-err04: Expected max sequence number is required when a filter is provided!')
+    if (expectedMaxSequenceNumber === undefined) {
+      throw new Error('eventstore-stores-postgres-err04: Expected max sequence number is required when a filter is provided!');
+    }
 
     const pool = await this.ensurePool();
     const client = await pool.connect();
@@ -125,7 +140,6 @@ export class PostgresEventStore implements EventStore {
         throw new Error('eventstore-stores-postgres-err05: Context changed: events were modified between query() and append()');
       }
 
-      // Convert inserted records to EventRecord[] and notify subscribers
       const insertedEvents = mapRecordsToEvents(result);
       await this.notifier.notify(insertedEvents);
 

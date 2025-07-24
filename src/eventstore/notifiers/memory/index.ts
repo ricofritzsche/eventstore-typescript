@@ -1,4 +1,4 @@
-import { EventRecord, EventStreamNotifier, EventSubscription, HandleEvents, Subscription } from '../../types';
+import { EventRecord, EventStreamNotifier, EventSubscription, HandleEvents, Subscription } from '../../types.ts';
 
 /**
  * MemoryEventStreamNotifier is an in-memory implementation of the EventStreamNotifier interface.

@@ -26,19 +26,17 @@ export function extractMaxSequenceNumber(result: UniversalQueryResult): number {
 
 export function prepareInsertParams(events: Event[], contextParams: unknown[]): unknown[] {
   const eventTypes: string[] = [];
-  const payloads: string[] = [];
-  const timestamps: string[] = [];
+  const payloads: unknown[] = [];
 
   for (const event of events) {
     eventTypes.push(event.eventType);
-    payloads.push(JSON.stringify(event.payload));
-    timestamps.push(new Date().toISOString());
+    // Don't stringify - pass raw objects for proper JSONB handling in Deno
+    payloads.push(event.payload);
   }
 
   return [
     ...contextParams,
     eventTypes,
-    payloads,
-    timestamps
+    payloads
   ];
 }
