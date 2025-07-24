@@ -33,6 +33,10 @@
     "node_modules",
     "dist",
     "**/*.test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "src/eventstore/filter_deno.ts",
+    "src/eventstore/notifiers/memory/mod.ts", 
+    "src/eventstore/stores/postgres/store_deno.ts",
+    "mod.ts"
   ]
 }
