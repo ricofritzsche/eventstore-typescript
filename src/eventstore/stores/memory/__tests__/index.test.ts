@@ -64,9 +64,24 @@ describe('MemoryEventStore', () => {
         });
     });
 
-    
-    describe('concurrent access', () => { 
-        it('xxx', async () => {
+
+    describe("EventStore Locking", () => {
+        it("should block query while append is running", async () => {
+            const results: string[] = [];
+
+            // Start append operation
+            const appendPromise = sut.append([{ eventType: 'test', payload: {} }])
+                .then(() => results.push('append-done'));
+
+            // Start query immediately after (should be blocked)
+            const queryPromise = sut.query()
+                .then(() => results.push('query-done'));
+
+            await Promise.all([appendPromise, queryPromise]);
+
+            // Append should complete before query
+            expect(results).toEqual(['append-done', 'query-done']);
         });
-    });
+    }); 
+
 });

@@ -1,22 +1,21 @@
-export class ReadWriteLock {
+// rwlock_fifo.ts
+export class ReadWriteLockFIFO {
     private readCount = 0;
     private writeCount = 0;
-    private waitingWriters = 0;
-    private readQueue: Array<() => void> = [];
-    private writeQueue: Array<() => void> = [];
+    private queue: Array<{ type: 'read' | 'write'; resolve: () => void }> = [];
 
     async acquireRead(): Promise<void> {
         return new Promise<void>((resolve) => {
-            // with no writers active or waiting we can start reading right away
-            if (this.writeCount === 0 && this.waitingWriters === 0) {
+            // Wenn keine Writer aktiv sind und keine anderen in der Queue warten
+            if (this.writeCount === 0 && this.queue.length === 0) {
                 this.readCount++;
                 resolve();
             } else {
-                // otherwise we get in line an wait...
-                this.readQueue.push(() => {
+                // In die FIFO-Queue einreihen
+                this.queue.push({ type: 'read', resolve: () => {
                     this.readCount++;
                     resolve();
-                });
+                }});
             }
         });
     }
@@ -28,28 +27,24 @@ export class ReadWriteLock {
         
         this.readCount--;
         
-        // if no readers are waiting then move on to writers
+        // Wenn keine Reader mehr aktiv sind, Queue abarbeiten
         if (this.readCount === 0) {
-            this.processWriteQueue();
+            this.processQueue();
         }
     }
 
     async acquireWrite(): Promise<void> {
         return new Promise<void>((resolve) => {
-            this.waitingWriters++;
-            
-            // if no readers or writers are active we can start writing right away
-            if (this.readCount === 0 && this.writeCount === 0) {
-                this.waitingWriters--;
+            // Wenn keine Reader und Writer aktiv sind und Queue leer
+            if (this.readCount === 0 && this.writeCount === 0 && this.queue.length === 0) {
                 this.writeCount = 1;
                 resolve();
             } else {
-                // otherwise get in line and wait
-                this.writeQueue.push(() => {
-                    this.waitingWriters--;
+                // In die FIFO-Queue einreihen
+                this.queue.push({ type: 'write', resolve: () => {
                     this.writeCount = 1;
                     resolve();
-                });
+                }});
             }
         });
     }
@@ -60,38 +55,42 @@ export class ReadWriteLock {
         }
         
         this.writeCount = 0;
+        this.processQueue();
+    }
+
+    private processQueue(): void {
+        if (this.queue.length === 0) return;
+
+        const next = this.queue[0];
         
-        // check first if any writers are waiting
-        if (!this.processWriteQueue()) {
-            // if not then allow readers to become active
-            this.processReadQueue();
+        if (next?.type === 'write') {
+            // Writer kann nur starten wenn keine Reader/Writer aktiv
+            if (this.readCount === 0 && this.writeCount === 0) {
+                this.queue.shift();
+                next.resolve();
+            }
+        } else {
+            // Reader: alle aufeinanderfolgenden Reader aus der Queue nehmen
+            const readers: Array<() => void> = [];
+            
+            while (this.queue.length > 0 && 
+                   this.queue[0]?.type === 'read' && 
+                   this.writeCount === 0) {
+                const reader = this.queue.shift()!;
+                readers.push(reader.resolve);
+            }
+            
+            // Alle Reader parallel starten
+            readers.forEach(resolve => resolve());
         }
     }
 
-    private processWriteQueue(): boolean {
-        if (this.writeQueue.length > 0 && this.readCount === 0 && this.writeCount === 0) {
-            const nextWriter = this.writeQueue.shift()!;
-            nextWriter();
-            return true;
-        }
-        return false;
-    }
-
-    private processReadQueue(): void {
-        // all readers can be active at the same time
-        while (this.readQueue.length > 0 && this.writeCount === 0 && this.waitingWriters === 0) {
-            const nextReader = this.readQueue.shift()!;
-            nextReader();
-        }
-    }
-
-    // Hilfsmethoden für Debugging
     getStatus() {
         return {
             readCount: this.readCount,
             writeCount: this.writeCount,
-            waitingWriters: this.waitingWriters,
-            waitingReaders: this.readQueue.length
+            queueLength: this.queue.length,
+            queueTypes: this.queue.map(item => item.type)
         };
     }
 }
