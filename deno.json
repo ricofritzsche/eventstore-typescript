@@ -1,5 +1,5 @@
 {
-  "name": "@ricofritzsche/eventstore-typescript",
+  "name": "@ricofritzsche/eventstore",
   "version": "1.0.1",
   "description": "Universal TypeScript event sourcing library with PostgreSQL persistence, real-time subscriptions, and projection support. Works in both Node.js and Deno environments.",
   "exports": {
