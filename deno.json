@@ -1,7 +1,7 @@
 {
   "name": "@ricofritzsche/eventstore",
   "version": "1.0.1",
-  "description": "Universal TypeScript event sourcing library with PostgreSQL persistence, real-time subscriptions, and projection support. Works in both Node.js and Deno environments.",
+  "description": "TypeScript event sourcing library with PostgreSQL persistence, real-time subscriptions, and projections for Node.js and Deno",
   "exports": {
     ".": "./mod.ts",
     "./notifiers": "./src/eventstore/notifiers/memory/mod.ts",
@@ -47,6 +47,12 @@
       "simple.ts"
     ]
   },
+  "runtimes": {
+    "deno": "compatible",
+    "node": "compatible",
+    "bun": "compatible",
+    "browser": "incompatible"
+  },
   "keywords": [
     "eventstore",
     "event-sourcing", 
@@ -59,7 +65,11 @@
     "subscriptions",
     "projections",
     "event-driven",
-    "cqrs"
+    "cqrs",
+    "database",
+    "persistence",
+    "deno",
+    "nodejs"
   ],
   "license": "MIT"
 }

@@ -1,3 +1,27 @@
+/**
+ * @fileoverview In-memory event stream notifier implementation for Deno
+ * 
+ * This module provides a memory-based implementation of the EventStreamNotifier interface,
+ * allowing applications to subscribe to event streams and receive real-time notifications
+ * when new events are appended to the event store.
+ * 
+ * @example
+ * ```typescript
+ * import { MemoryEventStreamNotifier } from 'jsr:@ricofritzsche/eventstore/notifiers';
+ * 
+ * const notifier = new MemoryEventStreamNotifier();
+ * 
+ * const subscription = await notifier.subscribe(async (events) => {
+ *   console.log('Received events:', events.length);
+ * });
+ * 
+ * // Later...
+ * await subscription.unsubscribe();
+ * ```
+ * 
+ * @module
+ */
+
 import { EventRecord, EventStreamNotifier, EventSubscription, HandleEvents, Subscription } from '../../types.ts';
 
 /**
