@@ -2,42 +2,42 @@ import { EventStream } from "../eventstream"
 
 
 describe('EventStream', () => {
-    let es:EventStream;
+    let sut:EventStream;
 
     beforeEach(() => {
-        es = new EventStream();
+        sut = new EventStream();
     });
 
 
     describe('append and query', () => { 
         it('no events in fresh event stream', async () => {
-            const result = es.eventRecords;
+            const result = sut.eventRecords;
             expect(result.length).toBe(0);
         });
 
         it('events appended appear as records', async () => {
-            es.append([{
+            sut.append([{
                 eventType: 'test1',
                 payload: {}
             }, {
                 eventType: 'test2',
                 payload: {}
             }])
-            const result = es.eventRecords;
+            const result = sut.eventRecords;
             expect(result.length).toBe(2);
             expect(result[0]?.eventType).toBe('test1');
             expect(result[1]?.eventType).toBe('test2');
         });
 
         it('appended events have correct sequence numbers', async () => {
-            es.append([{
+            sut.append([{
                 eventType: 'test1',
                 payload: {}
             }, {
                 eventType: 'test2',
                 payload: {}
             }])
-            const result = es.eventRecords;
+            const result = sut.eventRecords;
             expect(result.length).toBe(2);
             expect(result[0]?.sequenceNumber).toBe(1);
             expect(result[1]?.sequenceNumber).toBe(2);

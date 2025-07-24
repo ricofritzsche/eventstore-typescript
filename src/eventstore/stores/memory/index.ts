@@ -28,8 +28,8 @@ export class MemoryEventStore implements EventStore {
         write-lock
     */
     if (expectedMaxSequenceNumber) {
-        const currentQueryResult = this.query(filter);
-        if ((await currentQueryResult).maxSequenceNumber !== expectedMaxSequenceNumber) {
+        const currentQueryResult = await this.query(filter);
+        if ((currentQueryResult).maxSequenceNumber !== expectedMaxSequenceNumber) {
             throw new Error('eventstore-stores-memory-err05: Context changed: events were modified between query() and append()');
         }
     }
