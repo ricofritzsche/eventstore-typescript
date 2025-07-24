@@ -1,7 +1,7 @@
 {
   "name": "@ricofritzsche/eventstore-typescript",
   "version": "1.0.1",
-  "description": "TypeScript event sourcing library core types, filters, and memory notifiers for Deno. For full PostgreSQL functionality, use the Node.js version.",
+  "description": "Universal TypeScript event sourcing library with PostgreSQL persistence, real-time subscriptions, and projection support. Works in both Node.js and Deno environments.",
   "exports": {
     ".": "./mod.ts",
     "./notifiers": "./src/eventstore/notifiers/memory/mod.ts",
@@ -23,7 +23,7 @@
   "imports": {
     "@std/uuid": "jsr:@std/uuid@^1.0.0",
     "@std/dotenv": "jsr:@std/dotenv@^0.225.0",
-    "postgres": "https://deno.land/x/postgres@v0.17.0/mod.ts"
+    "postgres": "npm:postgres@3.4.3"
   },
   "exclude": [
     "node_modules/",

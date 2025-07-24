@@ -5,7 +5,7 @@ export function buildContextQuery(filter: EventFilter): { sql: string; params: u
   const params: unknown[] = [filter.eventTypes];
 
   if (filter.payloadPredicates && filter.payloadPredicates.length > 0) {
-    const orConditions = filter.payloadPredicates.map((_, index) => {
+    const orConditions = filter.payloadPredicates.map((_: Record<string, unknown>, index: number) => {
       const paramIndex = params.length + 1;
       params.push(JSON.stringify(filter.payloadPredicates![index]));
       return `payload @> $${paramIndex}`;
@@ -25,7 +25,7 @@ export function buildContextVersionQuery(filter: EventFilter): { sql: string; pa
   const params: unknown[] = [filter.eventTypes];
 
   if (filter.payloadPredicates && filter.payloadPredicates.length > 0) {
-    const orConditions = filter.payloadPredicates.map((_, index) => {
+    const orConditions = filter.payloadPredicates.map((_: Record<string, unknown>, index: number) => {
       const paramIndex = params.length + 1;
       params.push(JSON.stringify(filter.payloadPredicates![index]));
       return `payload @> $${paramIndex}`;

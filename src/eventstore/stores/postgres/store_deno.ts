@@ -1,7 +1,7 @@
-import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
-import { buildCteInsertQuery } from './insert';
-import { buildContextQuery } from './query';
-import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform';
+import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types.ts';
+import { buildCteInsertQuery } from './insert.ts';
+import { buildContextQuery } from './query.ts';
+import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform.ts';
 import { 
   CREATE_EVENTS_TABLE, 
   CREATE_EVENT_TYPE_INDEX, 
@@ -10,11 +10,34 @@ import {
   createDatabaseQuery,
   changeDatabaseInConnectionString,
   getDatabaseNameFromConnectionString
-} from './schema';
-import { createFilter } from '../../filter';
-import { MemoryEventStreamNotifier } from '../../notifiers';
+} from './schema.ts';
+import { createFilter } from '../../filter_deno.ts';
+import { MemoryEventStreamNotifier } from '../../notifiers/memory/mod.ts';
 
-import { Pool } from 'pg';
+// Universal database interfaces
+interface UniversalClient {
+  query(sql: string, params?: any[]): Promise<any>;
+  release(): void;
+}
+
+interface UniversalPool {
+  connect(): Promise<UniversalClient>;
+  end(): Promise<void>;
+}
+
+// Runtime detection and dynamic pool creation
+async function createUniversalPool(connectionString: string): Promise<UniversalPool> {
+  // @ts-ignore: Check for Deno runtime
+  if (typeof Deno !== 'undefined') {
+    // Deno environment - use postgres from npm
+    const { Pool } = await import('postgres');
+    return new Pool(connectionString);
+  } else {
+    // Node.js environment - use pg
+    const { Pool } = await import('pg');
+    return new Pool({ connectionString });
+  }
+}
 
 const NON_EXISTENT_EVENT_TYPE = '__NON_EXISTENT__' + Math.random().toString(36);
 
@@ -28,27 +51,39 @@ export interface PostgresEventStoreOptions {
  * Represents an implementation of an event store using Postgres as the underlying database.
  * Provides functionality to append events, query events, and manage database initialization.
  * Additionally, it facilitates event subscriptions through an event stream notifier mechanism.
+ * Works in both Node.js and Deno environments.
  */
 export class PostgresEventStore implements EventStore {
-  private pool: Pool;
+  private pool: UniversalPool;
   private readonly databaseName: string;
   private readonly notifier: EventStreamNotifier;
+  private readonly connectionString: string;
 
   constructor(options: PostgresEventStoreOptions = {}) {
-    const connectionString = options.connectionString || process.env.DATABASE_URL;
-    if (!connectionString) throw new Error('eventstore-stores-postgres-err02: Connection string missing. DATABASE_URL environment variable not set.');
+    // @ts-ignore: Deno and Node.js env handling
+    this.connectionString = options.connectionString || (typeof process !== 'undefined' ? process.env?.DATABASE_URL : Deno.env.get('DATABASE_URL')) || '';
+    if (!this.connectionString) throw new Error('eventstore-stores-postgres-err02: Connection string missing. DATABASE_URL environment variable not set.');
 
-    const databaseNameFromConnectionString = getDatabaseNameFromConnectionString(connectionString);
-    if (!databaseNameFromConnectionString) throw new Error('eventstore-stores-postgres-err03: Database name not found. Invalid connection string: ' + connectionString);
+    const databaseNameFromConnectionString = getDatabaseNameFromConnectionString(this.connectionString);
+    if (!databaseNameFromConnectionString) throw new Error('eventstore-stores-postgres-err03: Database name not found. Invalid connection string: ' + this.connectionString);
     this.databaseName = databaseNameFromConnectionString;
 
-    this.pool = new Pool({ connectionString });
+    // Pool will be initialized lazily
+    this.pool = null as any;
     // This is the "Default" EventStreamNotifier, but allow override
     this.notifier = options.notifier ?? new MemoryEventStreamNotifier();
   }
 
+  private async ensurePool(): Promise<UniversalPool> {
+    if (!this.pool) {
+      this.pool = await createUniversalPool(this.connectionString);
+    }
+    return this.pool;
+  }
+
   async query(filter: EventFilter): Promise<QueryResult> {
-    const client = await this.pool.connect();
+    const pool = await this.ensurePool();
+    const client = await pool.connect();
     try {
       const query = buildContextQuery(filter);
       const result = await client.query(query.sql, query.params);
@@ -78,7 +113,8 @@ export class PostgresEventStore implements EventStore {
     if (expectedMaxSequenceNumber === undefined)
       throw new Error('eventstore-stores-postgres-err04: Expected max sequence number is required when a filter is provided!')
 
-    const client = await this.pool.connect();
+    const pool = await this.ensurePool();
+    const client = await pool.connect();
     try {
       const cteQuery = buildCteInsertQuery(filter, expectedMaxSequenceNumber);
       const params = prepareInsertParams(events, cteQuery.params);
@@ -105,16 +141,18 @@ export class PostgresEventStore implements EventStore {
 
   async close(): Promise<void> {
     await this.notifier.close();
-    await this.pool.end();
+    if (this.pool) {
+      await this.pool.end();
+    }
   }
 
   private async createDatabase(): Promise<void> {
     const adminConnectionString = changeDatabaseInConnectionString(
-      process.env.DATABASE_URL!, 
+      this.connectionString, 
       'postgres'
     );
     
-    const adminPool = new Pool({ connectionString: adminConnectionString });
+    const adminPool = await createUniversalPool(adminConnectionString);
     const client = await adminPool.connect();
     
     try {
@@ -133,7 +171,8 @@ export class PostgresEventStore implements EventStore {
   }
 
   private async createTableAndIndexes(): Promise<void> {
-    const client = await this.pool.connect();
+    const pool = await this.ensurePool();
+    const client = await pool.connect();
     try {
       await client.query(CREATE_EVENTS_TABLE);
       await client.query(CREATE_EVENT_TYPE_INDEX);
