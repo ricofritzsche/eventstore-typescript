@@ -37,6 +37,10 @@
     "src/eventstore/filter_deno.ts",
     "src/eventstore/notifiers/memory/mod.ts", 
     "src/eventstore/stores/postgres/store_deno.ts",
+    "src/eventstore/stores/postgres/insert_deno.ts",
+    "src/eventstore/stores/postgres/query_deno.ts", 
+    "src/eventstore/stores/postgres/transform_deno.ts",
+    "src/eventstore/stores/postgres/schema_deno.ts",
     "mod.ts"
   ]
 }

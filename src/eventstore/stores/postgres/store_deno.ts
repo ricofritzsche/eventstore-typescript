@@ -1,7 +1,7 @@
 import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types.ts';
-import { buildCteInsertQuery } from './insert.ts';
-import { buildContextQuery } from './query.ts';
-import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform.ts';
+import { buildCteInsertQuery } from './insert_deno.ts';
+import { buildContextQuery } from './query_deno.ts';
+import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform_deno.ts';
 import { 
   CREATE_EVENTS_TABLE, 
   CREATE_EVENT_TYPE_INDEX, 
@@ -10,7 +10,7 @@ import {
   createDatabaseQuery,
   changeDatabaseInConnectionString,
   getDatabaseNameFromConnectionString
-} from './schema.ts';
+} from './schema_deno.ts';
 import { createFilter } from '../../filter_deno.ts';
 import { MemoryEventStreamNotifier } from '../../notifiers/memory/mod.ts';
 
