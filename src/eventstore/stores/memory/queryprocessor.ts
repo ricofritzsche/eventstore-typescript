@@ -1,4 +1,4 @@
-import { Event, EventFilter, EventRecord } from '../../types';
+import { EventFilter, EventRecord } from '../../types';
 
 export function processQuery(events: EventRecord[], filter?: EventFilter):EventRecord[] {
     if (!filter) {
@@ -17,14 +17,14 @@ function checkEventTypes(eventType:string, eventTypes?:string[]):boolean {
     if (eventTypes && eventTypes.length > 0) {
         return eventTypes.includes(eventType);
     }
-    return true; // without event types to check every event is a match
+    return true;
 }
 
 function checkPredicates(payload:Record<string,unknown>, predicates?:Record<string, unknown>[]):boolean {
     if (predicates && predicates.length > 0) {
         return predicates.some((predicate) => isPredicateASubsetOfPayload(payload, predicate));
     }
-    return true; // without predicates to check every event is a match
+    return true;
 }
 
 function isPredicateASubsetOfPayload(payload: unknown, predicate: unknown): boolean {
@@ -35,13 +35,11 @@ function isPredicateASubsetOfPayload(payload: unknown, predicate: unknown): bool
     if (payload === null || payload === undefined) {
         return false;
     }
-    
-    // compare primitive values
+
     if (typeof predicate !== 'object' || typeof payload !== 'object') {
         return predicate === payload;
     }
-    
-    // hand arrays
+
     if (Array.isArray(predicate) && Array.isArray(payload)) {
         return predicate.every(subItem => 
             payload.some(superItem => isPredicateASubsetOfPayload(subItem, superItem))
@@ -50,8 +48,7 @@ function isPredicateASubsetOfPayload(payload: unknown, predicate: unknown): bool
     if (Array.isArray(predicate) !== Array.isArray(payload)) {
         return false;
     }
-    
-    // compare objects recursively
+
     const subsetObj = predicate as Record<string, unknown>;
     const supersetObj = payload as Record<string, unknown>;
     

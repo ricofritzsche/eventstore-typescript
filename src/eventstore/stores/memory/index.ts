@@ -11,7 +11,6 @@ export class MemoryEventStore implements EventStore {
   private notifier: EventStreamNotifier = new MemoryEventStreamNotifier();
   private lock: ReadWriteLockFIFO = new ReadWriteLockFIFO();
 
-
   async query(filter?: EventFilter): Promise<QueryResult> {
     return await this.queryWithLock(filter, this.lock);
   }
