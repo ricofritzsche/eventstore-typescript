@@ -1,6 +1,6 @@
 {
   "name": "@ricofritzsche/eventstore",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "TypeScript event sourcing library with PostgreSQL persistence, real-time subscriptions, and projections for Node.js and Deno",
   "exports": {
     ".": "./mod.ts",
