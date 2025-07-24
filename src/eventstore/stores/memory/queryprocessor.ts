@@ -43,8 +43,8 @@ function isPredicateASubsetOfPayload(payload: unknown, predicate: unknown): bool
     
     // hand arrays
     if (Array.isArray(predicate) && Array.isArray(payload)) {
-        return predicate.every(subItem => 
-            payload.some(superItem => isPredicateASubsetOfPayload(subItem, superItem))
+        return predicate.every(predicateElement => 
+            payload.some(payloadElement => isPredicateASubsetOfPayload(payloadElement, predicateElement))
         );
     }
     if (Array.isArray(predicate) !== Array.isArray(payload)) {
@@ -52,14 +52,14 @@ function isPredicateASubsetOfPayload(payload: unknown, predicate: unknown): bool
     }
     
     // compare objects recursively
-    const subsetObj = predicate as Record<string, unknown>;
-    const supersetObj = payload as Record<string, unknown>;
+    const predicateKeys = predicate as Record<string, unknown>;
+    const payloadKeys = payload as Record<string, unknown>;
     
-    for (const key in subsetObj) {
-        if (!(key in supersetObj)) {
+    for (const predicateKey in predicateKeys) {
+        if (!(predicateKey in payloadKeys)) {
             return false;
         }
-        if (!isPredicateASubsetOfPayload(subsetObj[key], supersetObj[key])) {
+        if (!isPredicateASubsetOfPayload(payloadKeys[predicateKey], predicateKeys[predicateKey])) {
             return false;
         }
     }
