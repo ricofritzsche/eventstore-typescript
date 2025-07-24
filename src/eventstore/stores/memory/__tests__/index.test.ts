@@ -38,6 +38,28 @@ describe('MemoryEventStore', () => {
             expect(result.events[1]?.eventType).toBe("test2");
             expect(result.events[1]?.sequenceNumber).toBe(4);
         });
+
+        it('conditional append failing', async () => {
+            await sut.append([{
+                eventType: 'test1',
+                payload: { id: 1 }
+            }, {
+                eventType: 'test2',
+                payload: {}
+            }]);
+
+            const test1Filter = createFilter(["test1"]);
+            let resultTest1 = await sut.query(test1Filter);
+
+
+            await sut.append([{eventType: "test3", payload: {}}], test1Filter, resultTest1.maxSequenceNumber); // no conflict
+
+            await sut.append([{eventType: "test1", payload: { id: 2 }}]); // add another test1 event to provoke a conflict
+
+            // Now a conflict is expected!
+            await expect(sut.append([{eventType: "test4", payload: {}}], test1Filter, resultTest1.maxSequenceNumber))
+                .rejects.toThrow("eventstore-stores-memory-err05")
+        });
     });
 
 
