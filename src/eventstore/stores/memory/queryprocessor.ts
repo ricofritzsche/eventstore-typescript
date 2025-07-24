@@ -4,9 +4,65 @@ export function processQuery(events: EventRecord[], filter?: EventFilter):EventR
     if (!filter) {
         return events;
     }
-    return events.filter((e) => check(e, filter));
+    return events.filter((e) => checkEvent(e, filter));
 }
 
-function check(event:Event, filter:EventFilter):boolean {
+
+function checkEvent(event:EventRecord, filter:EventFilter):boolean {
+    return checkEventTypes(event.eventType, filter.eventTypes) && 
+        checkPredicates(event.payload, filter.payloadPredicates);
+}
+
+function checkEventTypes(eventType:string, eventTypes?:string[]):boolean {
+    if (eventTypes && eventTypes.length > 0) {
+        return eventTypes.includes(eventType);
+    }
+    return true; // without event types to check every event is a match
+}
+
+function checkPredicates(payload:Record<string,unknown>, predicates?:Record<string, unknown>[]):boolean {
+    if (predicates && predicates.length > 0) {
+        return predicates.some((predicate) => isPredicateASubsetOfPayload(payload, predicate));
+    }
+    return true; // without predicates to check every event is a match
+}
+
+function isPredicateASubsetOfPayload(payload: unknown, predicate: unknown): boolean {
+    if (predicate === null || predicate === undefined) {
+        return true;
+    }
+    
+    if (payload === null || payload === undefined) {
+        return false;
+    }
+    
+    // compare primitive values
+    if (typeof predicate !== 'object' || typeof payload !== 'object') {
+        return predicate === payload;
+    }
+    
+    // hand arrays
+    if (Array.isArray(predicate) && Array.isArray(payload)) {
+        return predicate.every(subItem => 
+            payload.some(superItem => isPredicateASubsetOfPayload(subItem, superItem))
+        );
+    }
+    if (Array.isArray(predicate) !== Array.isArray(payload)) {
+        return false;
+    }
+    
+    // compare objects recursively
+    const subsetObj = predicate as Record<string, unknown>;
+    const supersetObj = payload as Record<string, unknown>;
+    
+    for (const key in subsetObj) {
+        if (!(key in supersetObj)) {
+            return false;
+        }
+        if (!isPredicateASubsetOfPayload(subsetObj[key], supersetObj[key])) {
+            return false;
+        }
+    }
+    
     return true;
 }
