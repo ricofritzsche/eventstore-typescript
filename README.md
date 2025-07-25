@@ -1,4 +1,4 @@
-# EventStore TypeScript
+# EventStore
 
 A comprehensive TypeScript implementation of event sourcing with real-time event subscriptions and projections. This system provides persistent event storage with automatic notification to subscribers for building responsive, event-sourced applications.
 
