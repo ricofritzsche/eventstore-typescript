@@ -1,4 +1,4 @@
-import { EventFilter } from './types';
+import { EventFilter } from './types.ts';
 
 export function createFilter(
   eventTypes: string[],

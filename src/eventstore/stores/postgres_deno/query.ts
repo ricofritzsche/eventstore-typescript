@@ -1,4 +1,4 @@
-import { EventFilter } from '../../types';
+import { EventFilter } from '../../types.ts';
 
 export function buildContextQuery(filter: EventFilter): { sql: string; params: unknown[] } {
   let query = 'SELECT * FROM events WHERE event_type = ANY($1)';
@@ -14,14 +14,11 @@ export function buildContextQuery(filter: EventFilter): { sql: string; params: u
   }
 
   query += ' ORDER BY sequence_number ASC';
-  return {
-    sql: query,
-    params
-  };
+  return { sql: query, params };
 }
 
 export function buildContextVersionQuery(filter: EventFilter): { sql: string; params: unknown[] } {
-  let sql = 'event_type = ANY($1)';
+  let query = 'SELECT sequence_number FROM events WHERE event_type = ANY($1)';
   const params: unknown[] = [filter.eventTypes];
 
   if (filter.payloadPredicates && filter.payloadPredicates.length > 0) {
@@ -30,8 +27,9 @@ export function buildContextVersionQuery(filter: EventFilter): { sql: string; pa
       params.push(JSON.stringify(filter.payloadPredicates![index]));
       return `payload @> $${paramIndex}`;
     });
-    sql += ` AND (${orConditions.join(' OR ')})`;
+    query += ` AND (${orConditions.join(' OR ')})`;
   }
 
-  return { sql, params };
+  query += ' ORDER BY sequence_number ASC';
+  return { sql: query, params };
 }

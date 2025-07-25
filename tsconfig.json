@@ -24,7 +24,9 @@
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": [
     "src/**/*"

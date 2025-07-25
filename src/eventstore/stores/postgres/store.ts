@@ -1,4 +1,3 @@
-import { Pool } from 'pg';
 import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
 import { buildCteInsertQuery } from './insert';
 import { buildContextQuery } from './query';
@@ -14,6 +13,8 @@ import {
 } from './schema';
 import { createFilter } from '../../filter';
 import { MemoryEventStreamNotifier } from '../../notifiers';
+
+import { Pool } from 'pg';
 
 const NON_EXISTENT_EVENT_TYPE = '__NON_EXISTENT__' + Math.random().toString(36);
 

@@ -1,0 +1,75 @@
+{
+  "name": "@ricofritzsche/eventstore",
+  "version": "1.0.3",
+  "description": "TypeScript event sourcing library with PostgreSQL persistence, real-time subscriptions, and projections for Node.js and Deno",
+  "exports": {
+    ".": "./mod.ts",
+    "./notifiers": "./src/eventstore/notifiers/memory/index.ts",
+    "./types": "./src/eventstore/types.ts",
+    "./filter": "./src/eventstore/filter.ts"
+  },
+  "tasks": {
+    "test": "deno test --allow-all",
+    "test:coverage": "deno test --allow-all --coverage",
+    "fmt": "deno fmt",
+    "fmt:check": "deno fmt --check",
+    "lint": "deno lint",
+    "check": "deno check --config tsconfig.deno.json mod.ts"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["ES2020", "DOM"]
+  },
+  "imports": {
+    "@std/uuid": "jsr:@std/uuid@^1.0.0",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.0",
+    "postgres": "npm:postgres@3.4.3"
+  },
+  "exclude": [
+    "node_modules/",
+    "dist/",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "src/examples/"
+  ],
+  "publish": {
+    "exclude": [
+      "node_modules/",
+      "dist/",
+      "**/*.test.ts", 
+      "**/*.spec.ts",
+      "src/examples/",
+      "tests/",
+      "jest.config.js",
+      "package.json",
+      "package-lock.json",
+      "tsconfig.json",
+      "simple.ts"
+    ]
+  },
+  "runtimes": {
+    "deno": "compatible",
+    "node": "compatible",
+    "bun": "compatible",
+    "browser": "incompatible"
+  },
+  "keywords": [
+    "eventstore",
+    "event-sourcing", 
+    "eventsourcing",
+    "typescript",
+    "events",
+    "postgresql",
+    "postgres",
+    "real-time",
+    "subscriptions",
+    "projections",
+    "event-driven",
+    "cqrs",
+    "database",
+    "persistence",
+    "deno",
+    "nodejs"
+  ],
+  "license": "MIT"
+}
