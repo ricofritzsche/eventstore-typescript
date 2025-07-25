@@ -1,8 +1,13 @@
+// @ts-ignore
 import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types.ts';
+// @ts-ignore
 import { buildCteInsertQuery } from './insert.ts';
+// @ts-ignore
 import { buildContextQuery } from './query.ts';
+// @ts-ignore
 import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform.ts';
-import { 
+// @ts-ignore
+import {
   CREATE_EVENTS_TABLE, 
   CREATE_EVENT_TYPE_INDEX, 
   CREATE_OCCURRED_AT_INDEX, 
@@ -10,8 +15,11 @@ import {
   createDatabaseQuery,
   changeDatabaseInConnectionString,
   getDatabaseNameFromConnectionString
+  // @ts-ignore
 } from './schema.ts';
+// @ts-ignore
 import { createFilter } from '../../filter/mod.ts';
+// @ts-ignore
 import { MemoryEventStreamNotifier } from '../../notifiers/memory/mod.ts';
 
 // Universal database interfaces for Deno
@@ -31,7 +39,9 @@ async function createUniversalPool(connectionString: string): Promise<UniversalP
   if (typeof Deno !== 'undefined') {
     // Deno environment - use postgres library
     const postgres = await import('postgres');
-    const sql = postgres.default(connectionString);
+    const sql = postgres.default(connectionString, {
+      onnotice: () => {} // Suppress PostgreSQL notices
+    });
     
     // Adapt postgres client to UniversalPool interface
     return {

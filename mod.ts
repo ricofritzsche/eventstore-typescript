@@ -23,8 +23,12 @@
  */
 
 // Universal PostgreSQL support for both Node.js and Deno
+// @ts-ignore
 export { PostgresEventStore } from './src/eventstore/stores/postgres_deno/store.ts';
 export type { PostgresEventStoreOptions } from './src/eventstore/stores/postgres_deno/store.ts';
+// @ts-ignore
 export { MemoryEventStreamNotifier } from './src/eventstore/notifiers/memory/mod.ts';
+// @ts-ignore
 export { createFilter } from './src/eventstore/filter/mod.ts';
+// @ts-ignore
 export * from './src/eventstore/types.ts';
