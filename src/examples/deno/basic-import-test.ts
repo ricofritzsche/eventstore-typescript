@@ -9,6 +9,7 @@
  * Run with: deno run --allow-net --allow-env src/examples/deno/basic-import-test.ts
  */
 
+// @ts-ignore
 import { PostgresEventStore, createFilter, Event } from '../../../mod.ts';
 
 async function testImports() {
@@ -42,11 +43,14 @@ async function testImports() {
     console.log('   3. Run user-registration.ts or order-fulfillment.ts');
     
   } catch (error) {
+    // @ts-ignore
     console.error('❌ Import/instantiation error:', error.message);
+    // @ts-ignore
     Deno.exit(1);
   }
 }
 
+// @ts-ignore
 if (import.meta.main) {
   testImports();
 }
