@@ -1,5 +1,4 @@
-import { EventStore, createFilter } from 'jsr:@ricofritzsche/eventstore';
-import { GameStartedEvent, CurrentPlayerChangedEvent } from './eventdictionary.ts';
+import { EventStore, createFilter } from '../../../eventstore';
 
 export interface GameState {
     gameId: string;

@@ -16,6 +16,7 @@
     "dev": "ts-node src/index.ts",
     "example": "ts-node src/examples/banking/cli.ts",
     "example:banking": "ts-node src/examples/banking/cli.ts",
+    "example:game": "ts-node src/examples/ttt/index.ts",
     "simple": "ts-node simple.ts",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -37,6 +38,7 @@
   "author": "Rico Fritzsche",
   "license": "MIT",
   "devDependencies": {
+    "@types/inquirer": "^9.0.8",
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",
     "@types/pg": "^8.10.0",
@@ -53,6 +55,7 @@
   },
   "dependencies": {
     "dotenv": "^17.0.1",
+    "inquirer": "^12.8.2",
     "pg": "^8.11.0",
     "uuid": "^11.1.0"
   },

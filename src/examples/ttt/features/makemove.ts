@@ -1,5 +1,5 @@
-import { EventStore } from 'jsr:@ricofritzsche/eventstore';
-import { PlayerMadeMove } from './eventdictionary.ts';
+import { EventStore } from '../../../eventstore';
+import { PlayerMadeMove } from './eventdictionary';
 
 export class MakeMove{
     constructor(private eventStore: EventStore){

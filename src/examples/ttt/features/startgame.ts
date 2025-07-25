@@ -1,5 +1,5 @@
-import { EventStore } from 'jsr:@ricofritzsche/eventstore';
-import { GameStartedEvent, CurrentPlayerChangedEvent } from './eventdictionary.ts';
+import { EventStore } from '../../../eventstore';
+import { GameStartedEvent, CurrentPlayerChangedEvent } from './eventdictionary';
 
 export class StartGame{
     constructor(private eventStore: EventStore){

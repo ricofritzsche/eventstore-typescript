@@ -1,6 +1,7 @@
 import inquirer  from 'inquirer';
 
-import { PostgresEventStore } from '@ricofritzsche/eventstore';
+import { PostgresEventStore } from '../../eventstore';
+
 import { StartGame } from './features/startgame';
 import { GetGameState, GameState } from "./features/getgamestate";
 import { MakeMove } from "./features/makemove";
@@ -11,7 +12,7 @@ import process, { mainModule } from 'node:process';
 
 async function main() {
     dotenv.config();
-    const connectionString = process.env.DATABASE_URL
+    const connectionString = process.env.DATABASE_URL ?? "";
 
     const es = new PostgresEventStore({ connectionString: connectionString });
     await es.initializeDatabase();
