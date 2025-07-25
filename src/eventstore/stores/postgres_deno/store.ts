@@ -11,8 +11,8 @@ import {
   changeDatabaseInConnectionString,
   getDatabaseNameFromConnectionString
 } from './schema.ts';
-import { createFilter } from '../../filter.ts';
-import { MemoryEventStreamNotifier } from '../../notifiers/memory/index.ts';
+import { createFilter } from '../../filter/mod.ts';
+import { MemoryEventStreamNotifier } from '../../notifiers/memory/mod.ts';
 
 // Universal database interfaces for Deno
 interface UniversalClient {
