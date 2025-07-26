@@ -1,6 +1,18 @@
 # EventStore
 
+[![npm version](https://badge.fury.io/js/@ricofritzsche%2Feventstore.svg)](https://www.npmjs.com/package/@ricofritzsche/eventstore)
+
 A comprehensive TypeScript implementation of event sourcing with real-time event subscriptions and projections. This system provides persistent event storage with automatic notification to subscribers for building responsive, event-sourced applications.
+
+This package is a collaboration between [Ralf Westphal](https://github.com/ralfw) and [Rico Fritzsche](https://github.com/ricofritzsche).
+
+## Installation
+
+```bash
+npm install @ricofritzsche/eventstore
+```
+
+**NPM Package:** https://www.npmjs.com/package/@ricofritzsche/eventstore
 
 ## High-Level Architecture
 
@@ -29,7 +41,7 @@ The system is built around a core EventStore with pluggable notification system:
 - **`types.ts`** - Core interfaces (Event, EventStore, EventStreamNotifier)
 - **`stores/postgres/`** - PostgreSQL implementation with subscription support
 - **`notifiers/memory/`** - In-memory notification system (default)
-- **`filter.ts`** - Helper for creating event filters
+- **`filter/`** - Helper for creating event filters
 
 **Responsibilities**:
 - Store events immutably in PostgreSQL
@@ -122,16 +134,16 @@ The subscription system enables real-time, concurrent processing:
 │                    │                │                │                        │
 │                    ▼                ▼                ▼                        │
 │            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
-│            │ Account     │  │ Analytics   │  │   Other     │                 │
-│            │ Projection  │  │ Projection  │  │ Subscribers │                 │
-│            │ Subscriber  │  │ Subscriber  │  │             │                 │
+│            │ Projection  │  │ Analytics   │  │   Business  │                 │
+│            │ Subscriber  │  │ Subscriber  │  │ Logic       │                 │
+│            │             │  │             │  │ Subscriber  │                 │
 │            └─────────────┘  └─────────────┘  └─────────────┘                 │
 │                    │                │                │                        │
 │                    ▼                ▼                ▼                        │
 │            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
-│            │  accounts   │  │account_     │  │   Custom    │                 │
-│            │   table     │  │ analytics   │  │   Logic     │                 │
-│            │             │  │   table     │  │             │                 │
+│            │ Read Model  │  │ Metrics &   │  │ Notifications│                 │
+│            │ Database    │  │ Reports     │  │ & Workflows │                 │
+│            │             │  │             │  │             │                 │
 │            └─────────────┘  └─────────────┘  └─────────────┘                 │
 │                                                                                 │
 │              Concurrent, independent processing of the same events             │
@@ -142,8 +154,8 @@ The subscription system enables real-time, concurrent processing:
 
 ### 1. Setup
 ```bash
-# Install dependencies
-npm install
+# Install the package
+npm install @ricofritzsche/eventstore
 
 # Start Postgres
 docker run --name eventstore-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=bank -p 5432:5432 -d postgres:15
@@ -154,7 +166,7 @@ export DATABASE_URL="postgres://postgres:postgres@localhost:5432/bank"
 
 ### 2. Basic Usage
 ```typescript
-import { PostgresEventStore, createFilter } from './src/eventstore';
+import { PostgresEventStore, createFilter } from '@ricofritzsche/eventstore';
 
 // Create EventStore with default MemoryEventStreamNotifier
 const eventStore = new PostgresEventStore();
@@ -181,16 +193,34 @@ const subscription = await eventStore.subscribe(async (events) => {
 
 
 
-### 3. Run Banking Example
-```bash
-npm run example:banking
-```
+### 3. Advanced Usage with Subscriptions
+```typescript
+import { PostgresEventStore, createFilter } from '@ricofritzsche/eventstore';
 
-**Features in Banking CLI**:
-- **0-6**: Banking operations (open account, deposit, withdraw, transfer, view balance)
-- **7**: View analytics (monthly account opening statistics)
-- **98**: Rebuild analytics projections from event history
-- **99**: Rebuild account projections from event history
+const eventStore = new PostgresEventStore();
+await eventStore.initializeDatabase();
+
+// Create events
+const events = [
+  { eventType: 'UserRegistered', payload: { userId: '123', email: 'user@example.com' } },
+  { eventType: 'UserEmailVerified', payload: { userId: '123', verifiedAt: new Date() } }
+];
+
+// Subscribe before appending to catch real-time events
+const subscription = await eventStore.subscribe(async (events) => {
+  console.log(`Received ${events.length} new events`);
+  // Process events immediately as they're appended
+});
+
+// Append events - subscribers will be notified automatically
+await eventStore.append(events);
+
+// Query historical events
+const filter = createFilter(['UserRegistered', 'UserEmailVerified']);
+const result = await eventStore.query(filter);
+
+console.log(`Found ${result.events.length} historical events`);
+```
 
 
 
@@ -198,7 +228,7 @@ npm run example:banking
 Replace the notification system with your own:
 
 ```typescript
-import { EventStreamNotifier } from './src/eventstore/types';
+import { EventStreamNotifier, PostgresEventStore } from '@ricofritzsche/eventstore';
 
 class DatabaseEventStreamNotifier implements EventStreamNotifier {
   // Custom implementation using database triggers, message queues, etc.
@@ -210,23 +240,39 @@ const eventStore = new PostgresEventStore({
 ```
 
 
-## Testing
+## API Reference
 
-```bash
-# Run all tests
-npm test
+### PostgresEventStore
 
-# Run specific test suites
-npm run test:unit
-npm run test:integration
+The main event store implementation with PostgreSQL persistence.
+
+```typescript
+class PostgresEventStore {
+  constructor(options?: PostgresEventStoreOptions)
+  
+  // Initialize database schema
+  async initializeDatabase(): Promise<void>
+  
+  // Query events with filtering
+  async query(filter: EventFilter): Promise<QueryResult>
+  
+  // Append events with optimistic locking
+  async append(events: Event[], filter?: EventFilter, expectedMaxSequenceNumber?: number): Promise<void>
+  
+  // Subscribe to new events
+  async subscribe(handle: HandleEvents): Promise<EventSubscription>
+  
+  // Clean up resources
+  async close(): Promise<void>
+}
 ```
 
-**Test Coverage**:
-- EventStore core functionality
-- Subscription and notification systems
-- Banking domain logic
-- Projection systems
-- Error handling and edge cases
+### Helper Functions
+
+```typescript
+// Create event filters
+createFilter(eventTypes: string[], payloadPredicates?: Record<string, unknown>[]): EventFilter
+```
 
 
 
@@ -234,4 +280,4 @@ npm run test:integration
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see [LICENSE](LICENSE) file for details
