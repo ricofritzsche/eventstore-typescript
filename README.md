@@ -16,7 +16,7 @@ npm install @ricofritzsche/eventstore
 
 ## High-Level Architecture
 
-The system is built around a core EventStore with pluggable notification system:
+The system is built around a core EventStore with pluggable notification system.
 
 ### **EventStore** - The Source of Truth
 - **Persistent Storage**: Events are immutably stored in PostgreSQL
@@ -41,7 +41,7 @@ The system is built around a core EventStore with pluggable notification system:
 - **`types.ts`** - Core interfaces (Event, EventStore, EventStreamNotifier)
 - **`stores/postgres/`** - PostgreSQL implementation with subscription support
 - **`notifiers/memory/`** - In-memory notification system (default)
-- **`filter/`** - Helper for creating event filters
+- **`filter/`** - Event filters
 
 **Responsibilities**:
 - Store events immutably in PostgreSQL
@@ -267,7 +267,7 @@ class PostgresEventStore {
 }
 ```
 
-### Helper Functions
+### Filter Functions
 
 ```typescript
 // Create event filters
