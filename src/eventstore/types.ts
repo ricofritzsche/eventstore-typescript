@@ -1,3 +1,11 @@
+/**
+ * @fileoverview Core TypeScript interfaces and types for event sourcing
+ * 
+ * This module defines all the fundamental types used throughout the event sourcing library,
+ * including event definitions, store interfaces, subscription management, and query structures.
+ * These types provide the foundation for building type-safe event-sourced applications.
+**/
+
 export interface Event{
   readonly eventType: string;
   readonly payload: Record<string, unknown>;

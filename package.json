@@ -1,6 +1,6 @@
 {
-  "name": "typescript-eventstore",
-  "version": "1.0.0",
+  "name": "@ricofritzsche/eventstore",
+  "version": "1.0.4",
   "description": "A TypeScript event sourcing library with Postgres persistence, real-time subscriptions, and projection support for building responsive event-sourced applications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -30,12 +30,22 @@
   },
   "keywords": [
     "eventstore",
+    "event-sourcing",
     "eventsourcing",
-    "aggregateless",
     "typescript",
-    "events"
+    "events",
+    "postgresql",
+    "postgres",
+    "real-time",
+    "subscriptions",
+    "projections",
+    "event-driven",
+    "cqrs"
   ],
   "author": "Rico Fritzsche",
+  "contributors": [
+    "Ralf Westphal"
+  ],
   "license": "MIT",
   "devDependencies": {
     "@types/inquirer": "^9.0.8",
@@ -60,7 +70,7 @@
     "uuid": "^11.1.0"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=20.0.0"
   },
   "repository": {
     "type": "git",

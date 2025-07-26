@@ -35,7 +35,7 @@ export function getDatabaseNameFromConnectionString(connStr: string): string | n
     const dbName = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
     return dbName || null;
   } catch (err) {
-    console.error('err01: Invalid connection string:', err);
+    console.error('eventstore-stores-postgres-err01: Invalid connection string:', err);
     return null;
   }
 }
