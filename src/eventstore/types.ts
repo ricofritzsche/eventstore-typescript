@@ -4,24 +4,7 @@
  * This module defines all the fundamental types used throughout the event sourcing library,
  * including event definitions, store interfaces, subscription management, and query structures.
  * These types provide the foundation for building type-safe event-sourced applications.
- * 
- * @example
- * ```typescript
- * import type { Event, EventFilter, EventStore } from 'jsr:@ricofritzsche/eventstore/types';
- * 
- * const event: Event = {
- *   eventType: 'UserCreated',
- *   payload: { userId: '123', name: 'John' }
- * };
- * 
- * const filter: EventFilter = {
- *   eventTypes: ['UserCreated', 'UserUpdated'],
- *   payloadPredicates: [{ userId: '123' }]
- * };
- * ```
- * 
- * @module
- */
+**/
 
 export interface Event{
   readonly eventType: string;

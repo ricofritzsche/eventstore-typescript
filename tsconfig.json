@@ -34,10 +34,5 @@
     "dist",
     "**/*.test.ts",
     "**/*.spec.ts",
-    "src/eventstore/stores/postgres_deno/",
-    "src/eventstore/filter/mod.ts",
-    "src/eventstore/notifiers/memory/mod.ts",
-    "src/examples/deno/",
-    "mod.ts"
   ]
 }
