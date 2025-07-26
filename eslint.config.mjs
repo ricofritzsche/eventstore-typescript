@@ -13,7 +13,6 @@ export default [
       parserOptions: {
         ecmaVersion: 2020,
         sourceType: 'module',
-        project: './tsconfig.json',
       },
     },
     plugins: {
@@ -24,7 +23,7 @@ export default [
       ...tsPlugin.configs.recommended.rules,
       ...tsPlugin.configs['recommended-requiring-type-checking'].rules,
       ...prettierConfig.rules,
-      'prettier/prettier': 'error',
+      'prettier/prettier': ['error', {}, { usePrettierrc: true }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/explicit-function-return-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'error',
@@ -47,6 +46,7 @@ export default [
       'dist/**',
       '**/*.test.ts',
       '**/*.spec.ts',
+      'src/examples/**',
     ],
   },
 ];
