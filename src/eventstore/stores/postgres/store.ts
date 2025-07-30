@@ -1,4 +1,4 @@
-import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
+import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription, EventQuery } from '../../types';
 import { buildCteInsertQuery } from './insert';
 import { buildContextQuery } from './query';
 import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform';
@@ -11,7 +11,7 @@ import {
   changeDatabaseInConnectionString,
   getDatabaseNameFromConnectionString
 } from './schema';
-import { createFilter } from '../../filter';
+import { createFilter, } from '../../filter';
 import { MemoryEventStreamNotifier } from '../../notifiers';
 
 import { Pool } from 'pg';
@@ -47,10 +47,10 @@ export class PostgresEventStore implements EventStore {
     this.notifier = options.notifier ?? new MemoryEventStreamNotifier();
   }
 
-  async query(filter: EventFilter): Promise<QueryResult> {
+  async query(query: EventQuery): Promise<QueryResult> {
     const client = await this.pool.connect();
     try {
-      const query = buildContextQuery(filter);
+      const query = buildContextQuery(query);
       const result = await client.query(query.sql, query.params);
 
       return { 
@@ -67,11 +67,11 @@ export class PostgresEventStore implements EventStore {
   }
 
 
-  async append(events: Event[], filter?: EventFilter,  expectedMaxSequenceNumber?: number): Promise<void> {
+  async append(events: Event[], query?: EventQuery,  expectedMaxSequenceNumber?: number): Promise<void> {
     if (events.length === 0) return;
 
-    if (filter === undefined || filter.eventTypes.length === 0) {
-      filter = createFilter([NON_EXISTENT_EVENT_TYPE]);
+    if (query === undefined || query.filters.length === 0) {
+      query = createQuery(createFilter([NON_EXISTENT_EVENT_TYPE]));
       expectedMaxSequenceNumber = 0;
     }
 
@@ -80,7 +80,7 @@ export class PostgresEventStore implements EventStore {
 
     const client = await this.pool.connect();
     try {
-      const cteQuery = buildCteInsertQuery(filter, expectedMaxSequenceNumber);
+      const cteQuery = buildCteInsertQuery(query, expectedMaxSequenceNumber);
       const params = prepareInsertParams(events, cteQuery.params);
 
       const result = await client.query(cteQuery.sql, params);
