@@ -1,4 +1,4 @@
-import { Event, EventStore, EventRecord, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
+import { Event, EventStore, EventRecord, EventFilter, EventQuery, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
 import { MemoryEventStreamNotifier } from '../../notifiers';
 
 import { EventStream } from './eventstream';
@@ -11,15 +11,15 @@ export class MemoryEventStore implements EventStore {
   private notifier: EventStreamNotifier = new MemoryEventStreamNotifier();
   private lock: ReadWriteLockFIFO = new ReadWriteLockFIFO();
 
-  async query(filter?: EventFilter): Promise<QueryResult> {
-    return await this.queryWithLock(filter, this.lock);
+  async query(query?: EventQuery): Promise<QueryResult> {
+    return await this.queryWithLock(query, this.lock);
   }
 
-  async queryWithLock(filter?: EventFilter, lock?: ReadWriteLockFIFO): Promise<QueryResult> {
+  async queryWithLock(query?: EventQuery, lock?: ReadWriteLockFIFO): Promise<QueryResult> {
     if (lock)
         await lock.acquireRead();
     try {
-        const matchingEvents = processQuery(this.eventStream.eventRecords, filter);
+        const matchingEvents = processQuery(this.eventStream.eventRecords, query);
         const maxSequenceNumber = matchingEvents.length > 0 ? matchingEvents[matchingEvents.length - 1]?.sequenceNumber : 0;
         return { 
             events: matchingEvents,
@@ -32,11 +32,11 @@ export class MemoryEventStore implements EventStore {
   }
 
 
-  async append(events: Event[], filter?: EventFilter,  expectedMaxSequenceNumber?: number): Promise<void> {
+  async append(events: Event[], query?: EventQuery,  expectedMaxSequenceNumber?: number): Promise<void> {
     await this.lock.acquireWrite();
     try {
         if (expectedMaxSequenceNumber) {
-            const currentQueryResult = await this.queryWithLock(filter, undefined);
+            const currentQueryResult = await this.queryWithLock(query, undefined);
             if ((currentQueryResult).maxSequenceNumber !== expectedMaxSequenceNumber) {
                 throw new Error('eventstore-stores-memory-err05: Context changed: events were modified between query() and append()');
             }
