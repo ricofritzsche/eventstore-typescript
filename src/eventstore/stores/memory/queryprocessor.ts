@@ -1,14 +1,17 @@
-import { EventFilter, EventRecord } from '../../types';
+import { EventFilter, EventQuery, EventRecord } from '../../types';
 
-export function processQuery(events: EventRecord[], filter?: EventFilter):EventRecord[] {
-    if (!filter) {
+export function processQuery(events: EventRecord[], query?: EventQuery):EventRecord[] {
+    if (!query) {
         return events;
     }
-    return events.filter((e) => checkEvent(e, filter));
+    return events.filter((e) => checkEventAgainstQuery(e, query));
 }
 
+function checkEventAgainstQuery(event:EventRecord, query:EventQuery):boolean {
+    return query.filters.some((filter) => checkEventAgainstFilter(event, filter));
+}
 
-function checkEvent(event:EventRecord, filter:EventFilter):boolean {
+function checkEventAgainstFilter(event:EventRecord, filter:EventFilter):boolean {
     return checkEventTypes(event.eventType, filter.eventTypes) && 
         checkPredicates(event.payload, filter.payloadPredicates);
 }
