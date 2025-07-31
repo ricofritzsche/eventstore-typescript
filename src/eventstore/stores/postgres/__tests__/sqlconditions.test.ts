@@ -1,4 +1,4 @@
-import { compileContextQueryConditions } from '../query';
+import { compileContextQueryConditions } from '../sql';
 import { createFilter, createQuery } from '../../../filter';
 
 describe('Conditions compiler', () => {

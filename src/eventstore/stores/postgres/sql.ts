@@ -49,7 +49,7 @@ console.log(`   *** filer: <${sql}>`)
 }
 
 
-export function buildContextQuery(query: EventQuery): { sql: string; params: unknown[] } {
+export function buildContextQuerySql(query: EventQuery): { sql: string; params: unknown[] } {
   const conditions = compileContextQueryConditions(query);
 
   let sql = 'SELECT * FROM events ';
@@ -58,6 +58,24 @@ export function buildContextQuery(query: EventQuery): { sql: string; params: unk
 
   return {
     sql,
+    params: conditions.params
+  };
+}
+
+
+export function buildAppendSql(query: EventQuery, expectedMaxSeq: number): { sql: string, params: unknown[] } {
+  const conditions = compileContextQueryConditions(query);
+  
+  const contextParamCount = conditions.params.length;
+  const eventTypesParam = contextParamCount + 1;
+  const payloadsParam = contextParamCount + 2;
+
+  return {
+    sql: 
+`WITH context AS (SELECT MAX(sequence_number) AS max_seq FROM events${conditions.sql.length > 0 ? " WHERE " + conditions.sql : ""})
+INSERT INTO events (event_type, payload)
+SELECT unnest($${eventTypesParam}::text[]), unnest($${payloadsParam}::jsonb[]) FROM context WHERE COALESCE(max_seq, 0) = ${expectedMaxSeq}
+RETURNING *`,
     params: conditions.params
   };
 }

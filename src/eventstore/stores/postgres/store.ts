@@ -1,6 +1,6 @@
 import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription, EventQuery } from '../../types';
-import { buildCteInsertQuery } from './insert';
-import { buildContextQuery } from './query';
+import { buildAppendSql } from './insert';
+import { buildContextQuerySql } from './sql';
 import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform';
 import { 
   CREATE_EVENTS_TABLE, 
@@ -50,7 +50,7 @@ export class PostgresEventStore implements EventStore {
   async query(query: EventQuery): Promise<QueryResult> {
     const client = await this.pool.connect();
     try {
-      const query = buildContextQuery(query);
+      const query = buildContextQuerySql(query);
       const result = await client.query(query.sql, query.params);
 
       return { 
@@ -80,7 +80,7 @@ export class PostgresEventStore implements EventStore {
 
     const client = await this.pool.connect();
     try {
-      const cteQuery = buildCteInsertQuery(query, expectedMaxSequenceNumber);
+      const cteQuery = buildAppendSql(query, expectedMaxSequenceNumber);
       const params = prepareInsertParams(events, cteQuery.params);
 
       const result = await client.query(cteQuery.sql, params);
