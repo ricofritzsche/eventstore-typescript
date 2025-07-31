@@ -3,5 +3,5 @@ export { MemoryEventStore } from './stores/memory';
 
 export { MemoryEventStreamNotifier } from './notifiers';
 
-export { createFilter } from './filter';
+export { createFilter, createQuery } from './filter';
 export * from './types';

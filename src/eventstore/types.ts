@@ -32,8 +32,8 @@ export interface QueryResult {
 }
 
 export interface EventStore {
-  query(query: EventQuery): Promise<QueryResult>;
-  append(events: Event[], query?: EventQuery, expectedMaxSequenceNumber?: number): Promise<void>;
+  query(filterCriteria: EventQuery): Promise<QueryResult>;
+  append(events: Event[], filterCriteria?: EventQuery, expectedMaxSequenceNumber?: number): Promise<void>;
   subscribe(handle: HandleEvents): Promise<EventSubscription>;
 }
 

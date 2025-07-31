@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import { EventRecord } from '../../../../eventstore/types';
-import { createFilter } from '../../../../eventstore';
+import { createFilter, createQuery } from '../../../../eventstore';
 
 export async function createAccountsTable(connectionString: string, tableName: string = 'accounts'): Promise<void> {
   const pool = new Pool({ connectionString });
@@ -130,7 +130,7 @@ export async function rebuildAccountProjections(eventStore: any, connectionStrin
     console.log('🗑️  Cleared existing account projections');
     
     // Query all events from the event store using createFilter
-    const filter = createFilter(['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred']);
+    const filter = createQuery(createFilter(['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred']));
     const { events } = await eventStore.query(filter);
     console.log(`📥 Found ${events.length} events to replay`);
     

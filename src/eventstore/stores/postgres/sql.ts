@@ -18,7 +18,7 @@ export function compileContextQueryConditions(query: EventQuery): { sql: string;
       params.push(...filterClause.params);
     }
   }
-console.log(`### query: <${sql}>`)
+  
   return { sql, params };
 }
 
@@ -41,7 +41,7 @@ function compileContextQueryConditionsFilter(filter: EventFilter, paramsBaseInde
     sql += `(${orConditions.join(' OR ')})`;
   }
   if (sql.length > 0) sql = `(${sql})`
-console.log(`   *** filer: <${sql}>`)
+
   return {
     sql,
     params

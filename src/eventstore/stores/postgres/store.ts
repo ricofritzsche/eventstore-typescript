@@ -1,6 +1,5 @@
-import { Event, EventStore, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription, EventQuery } from '../../types';
-import { buildAppendSql } from './insert';
-import { buildContextQuerySql } from './sql';
+import { Event, EventStore, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription, EventQuery } from '../../types';
+import { buildContextQuerySql, buildAppendSql } from './sql';
 import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform';
 import { 
   CREATE_EVENTS_TABLE, 
@@ -11,7 +10,7 @@ import {
   changeDatabaseInConnectionString,
   getDatabaseNameFromConnectionString
 } from './schema';
-import { createFilter, } from '../../filter';
+import { createFilter, createQuery} from '../../filter';
 import { MemoryEventStreamNotifier } from '../../notifiers';
 
 import { Pool } from 'pg';
@@ -47,10 +46,10 @@ export class PostgresEventStore implements EventStore {
     this.notifier = options.notifier ?? new MemoryEventStreamNotifier();
   }
 
-  async query(query: EventQuery): Promise<QueryResult> {
+  async query(filterCriteria: EventQuery): Promise<QueryResult> {
     const client = await this.pool.connect();
     try {
-      const query = buildContextQuerySql(query);
+      const query = buildContextQuerySql(filterCriteria);
       const result = await client.query(query.sql, query.params);
 
       return { 
@@ -67,11 +66,11 @@ export class PostgresEventStore implements EventStore {
   }
 
 
-  async append(events: Event[], query?: EventQuery,  expectedMaxSequenceNumber?: number): Promise<void> {
+  async append(events: Event[], filterCriteria?: EventQuery,  expectedMaxSequenceNumber?: number): Promise<void> {
     if (events.length === 0) return;
 
-    if (query === undefined || query.filters.length === 0) {
-      query = createQuery(createFilter([NON_EXISTENT_EVENT_TYPE]));
+    if (filterCriteria === undefined || filterCriteria.filters.length === 0) {
+      filterCriteria = createQuery(createFilter([NON_EXISTENT_EVENT_TYPE]));
       expectedMaxSequenceNumber = 0;
     }
 
@@ -80,7 +79,7 @@ export class PostgresEventStore implements EventStore {
 
     const client = await this.pool.connect();
     try {
-      const cteQuery = buildAppendSql(query, expectedMaxSequenceNumber);
+      const cteQuery = buildAppendSql(filterCriteria, expectedMaxSequenceNumber);
       const params = prepareInsertParams(events, cteQuery.params);
 
       const result = await client.query(cteQuery.sql, params);
