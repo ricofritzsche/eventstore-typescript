@@ -32,6 +32,16 @@ export class MemoryEventStore implements EventStore {
   }
 
 
+  async queryAll(): Promise<QueryResult> {
+    const events = this.eventStream.eventRecords;
+    const maxSequenceNumber = events.length > 0 ? events[events.length - 1]?.sequenceNumber || 0 : 0;
+    return { 
+      events,
+      maxSequenceNumber
+     };
+  }
+
+
   async append(events: Event[], query?: EventQuery,  expectedMaxSequenceNumber?: number): Promise<void> {
     await this.lock.acquireWrite();
     try {

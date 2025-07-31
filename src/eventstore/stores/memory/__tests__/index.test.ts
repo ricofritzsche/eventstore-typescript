@@ -60,6 +60,21 @@ describe('MemoryEventStore', () => {
             await expect(sut.append([{eventType: "test4", payload: {}}], test1Filter, resultTest1.maxSequenceNumber))
                 .rejects.toThrow("eventstore-stores-memory-err05")
         });
+
+
+        it('query all events', async () => {
+            await sut.append([{
+                eventType: 'test1',
+                payload: {}
+            }, {
+                eventType: 'test2',
+                payload: {}
+            }]);
+            let result = await sut.queryAll();
+            expect(result.events.length).toBe(2);
+            expect(result.events[1]?.eventType).toBe("test2");
+            expect(result.events[1]?.sequenceNumber).toBe(2);
+        });
     });
 
 
