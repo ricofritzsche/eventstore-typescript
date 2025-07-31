@@ -40,5 +40,17 @@ describe('Conditions compiler', () => {
     });
   });
 
+  describe('multiple filters (query)', () => {
+    it('only typenames', () => {
+      const result = compileContextQueryConditions(createQuery(createFilter(["t1"],[]), createFilter(["t2"],[])));
+      expect(result.sql).toBe('((event_type = ANY($1))) OR ((event_type = ANY($2)))');
+      expect(result.params).toEqual([['t1'], ["t2"]]);
+    });
 
+    it('only typenames with payload', () => {
+      const result = compileContextQueryConditions(createQuery(createFilter(["t1"],[{ a: 1 }]), createFilter(["t2"],[{ b: 2 }, { c: 3 }])));
+      expect(result.sql).toBe('((event_type = ANY($1) AND (payload @> $2))) OR ((event_type = ANY($3) AND (payload @> $4 OR payload @> $5)))');
+      expect(result.params).toEqual([['t1'], '{"a":1}', ['t2'], '{"b":2}', '{"c":3}']);
+    });
+  });
 });
