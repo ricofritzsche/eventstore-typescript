@@ -2,7 +2,8 @@
 
 [![npm version](https://badge.fury.io/js/@ricofritzsche%2Feventstore.svg)](https://www.npmjs.com/package/@ricofritzsche/eventstore)
 
-A comprehensive TypeScript implementation of event sourcing with real-time event subscriptions and projections. This system provides persistent event storage with automatic notification to subscribers for building responsive, event-sourced applications.
+A comprehensive TypeScript implementation of event sourcing with real-time event subscriptions and projections. 
+This system provides persistent event storage with automatic notification to subscribers for building responsive, event-sourced applications.
 
 This package is a collaboration between [Ralf Westphal](https://github.com/ralfw) and [Rico Fritzsche](https://github.com/ricofritzsche).
 
@@ -39,14 +40,15 @@ The system is built around a core EventStore with pluggable notification system.
 
 **Key Components**:
 - **`types.ts`** - Core interfaces (Event, EventStore, EventQuery, EventStreamNotifier)
-- **`stores/postgres/`** - PostgreSQL implementation with subscription support
+- **`stores/postgres/`** - PostgreSQL implementation of EventStore with subscription support
+- **`stores/memory/`** - In-memory implementation of EventStore with subscription support
 - **`notifiers/memory/`** - In-memory notification system (default)
 - **`filter/`** - Event filters and queries
 
 **Responsibilities**:
-- Store events immutably in PostgreSQL
+- Store events immutably in storage medium, e.g. PostgreSQL database or in-memory
 - Query events with complex filtering using EventQuery
-- Provide atomic consistency through optimistic locking with CTE-based approach
+- Provide atomic consistency through optimistic locking (with CTE-based approach (Postgres))
 - Notify subscribers immediately when events are appended
 - Manage subscription lifecycle
 
@@ -73,36 +75,36 @@ The system is built around a core EventStore with pluggable notification system.
 ## Event Flow Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                                Event Flow                                       │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                                Event Flow                                      │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
 │  ┌─────────────┐  append()  ┌─────────────┐   notify()   ┌─────────────┐       │
-│  │   Command   │ ─────────▶ │ EventStore  │ ────────────▶ │   Event     │       │
+│  │   Command   │ ─────────▶ │ EventStore  │ ───────────▶ │   Event     │       │
 │  │  Handler    │            │             │              │  Notifier   │       │
 │  └─────────────┘            └─────────────┘              └─────────────┘       │
-│                                     │                            │              │
-│                                     ▼                            ▼              │
+│                                     │                            │             │
+│                                     ▼                            ▼             │
 │  ┌─────────────┐            ┌─────────────┐              ┌─────────────┐       │
 │  │  PostgreSQL │            │   Events    │              │  Multiple   │       │
 │  │  Database   │            │   Saved     │              │ Subscribers │       │
 │  └─────────────┘            └─────────────┘              └─────────────┘       │
-│                                                                   │              │
-│                                                                   ▼              │
+│                                                                   │            │
+│                                                                   ▼            │
 │                                                          ┌─────────────┐       │
 │  ┌─────────────┐                                         │ Concurrent  │       │
 │  │  Queries    │ ◀───────────────────────────────────────│ Processing  │       │
 │  │             │                                         │             │       │
 │  └─────────────┘                                         └─────────────┘       │
-│                                                                   │              │
-│                                                                   ▼              │
+│                                                                   │            │
+│                                                                   ▼            │
 │                                                          ┌─────────────┐       │
 │                                                          │ Projections │       │
 │                                                          │   Updated   │       │
 │                                                          └─────────────┘       │
-│                                                                                 │
-│                          Real-time, concurrent event processing                 │
-└─────────────────────────────────────────────────────────────────────────────────┘
+│                                                                                │
+│                          Real-time, concurrent event processing                │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Subscription System
@@ -110,10 +112,10 @@ The system is built around a core EventStore with pluggable notification system.
 The subscription system enables real-time, concurrent processing:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         Subscription Architecture                               │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                         Subscription Architecture                              │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
 │                              ┌─────────────┐                                   │
 │                              │ EventStore  │                                   │
 │                              │             │                                   │
@@ -130,24 +132,24 @@ The subscription system enables real-time, concurrent processing:
 │                              │(Memory)     │                                   │
 │                              └──────┬──────┘                                   │
 │                                     │                                          │
-│                    ┌────────────────┼────────────────┐                        │
-│                    │                │                │                        │
-│                    ▼                ▼                ▼                        │
-│            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
-│            │ Projection  │  │ Analytics   │  │   Business  │                 │
-│            │ Subscriber  │  │ Subscriber  │  │ Logic       │                 │
-│            │             │  │             │  │ Subscriber  │                 │
-│            └─────────────┘  └─────────────┘  └─────────────┘                 │
-│                    │                │                │                        │
-│                    ▼                ▼                ▼                        │
-│            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
-│            │ Read Model  │  │ Metrics &   │  │ Notifications│                 │
-│            │ Database    │  │ Reports     │  │ & Workflows │                 │
-│            │             │  │             │  │             │                 │
-│            └─────────────┘  └─────────────┘  └─────────────┘                 │
-│                                                                                 │
+│                    ┌────────────────┼────────────────┐                         │
+│                    │                │                │                         │
+│                    ▼                ▼                ▼                         │
+│            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                   │
+│            │ Projection  │  │ Analytics   │  │   Business  │                   │
+│            │ Subscriber  │  │ Subscriber  │  │ Logic       │                   │
+│            │             │  │             │  │ Subscriber  │                   │
+│            └─────────────┘  └─────────────┘  └─────────────┘                   │
+│                    │                │                │                         │
+│                    ▼                ▼                ▼                         │
+│            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                   │
+│            │ Read Model  │  │ Metrics &   │  │ Notifications│                  │
+│            │ Database    │  │ Reports     │  │ & Workflows │                   │
+│            │             │  │             │  │             │                   │
+│            └─────────────┘  └─────────────┘  └─────────────┘                   │
+│                                                                                │
 │              Concurrent, independent processing of the same events             │
-└─────────────────────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Quick Start
@@ -166,10 +168,14 @@ export DATABASE_URL="postgres://postgres:postgres@localhost:5432/bank"
 
 ### 2. EventQuery
 ```typescript
-import { PostgresEventStore, createQuery, createFilter } from '@ricofritzsche/eventstore';
+import { PostgresEventStore, MemoryEventStore, createQuery, createFilter } from '@ricofritzsche/eventstore';
 
-const eventStore = new PostgresEventStore();
+// Postgres
+const eventStore = new PostgresEventStore( {connectionstring: "..."} ); 
 await eventStore.initializeDatabase();
+
+// In-memory
+// const eventStore = new MemoryEventStore();
 
 // Create events
 const events = [
@@ -179,7 +185,7 @@ const events = [
 
 // Subscribe before appending to catch real-time events
 const subscription = await eventStore.subscribe(async (events) => {
-  console.log(`Received ${events.length} new events`);
+console.log(`Received ${events.length} new events`);
   // Process events immediately as they're appended
 });
 
@@ -204,7 +210,8 @@ const specificResult = await eventStore.query(specificUserQuery);
 
 ### 3. Atomic Consistency with Optimistic Locking
 
-The EventStore provides atomic consistency through optimistic locking using Common Table Expressions (CTEs). This approach ensures that concurrent operations only conflict when they actually depend on the same event context, rather than using traditional aggregate-level locking.
+The EventStore provides atomic consistency through optimistic locking using Common Table Expressions (CTEs (Postgres)). 
+This approach ensures that concurrent operations only conflict when they actually depend on the same event context, rather than using traditional aggregate-level locking.
 
 ```typescript
 // Atomic append with consistency check
@@ -215,7 +222,7 @@ const accountEvents = [
 // Create a query for the specific context we want to protect
 const accountQuery = createQuery(
   createFilter(['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn'], 
-    [{ accountId: 'acc-123' }])
+               [{ accountId: 'acc-123' }])
 );
 
 // Get current state to determine expected sequence number
@@ -234,7 +241,7 @@ try {
 }
 ```
 
-**How CTE-based Consistency Works:**
+**How CTE-based Consistency Works (Postgres):**
 
 1. **Context-Specific Protection**: Only events matching the query filter are considered for consistency
 2. **Atomic Check-and-Insert**: Uses SQL CTE to check max sequence number and insert events in one transaction
@@ -259,7 +266,7 @@ WHERE COALESCE(max_seq, 0) = $2
 import { PostgresEventStore, createQuery, createFilter } from '@ricofritzsche/eventstore';
 
 // Create EventStore with default MemoryEventStreamNotifier
-const eventStore = new PostgresEventStore();
+const eventStore = new PostgresEventStore({connectionstring: "..."});
 await eventStore.initializeDatabase();
 
 // Subscribe to events for real-time processing
@@ -348,12 +355,9 @@ interface EventQuery {
 ```
 
 **Query Logic:**
-- Within an `EventFilter`: event types are OR'ed, payload predicates are OR'ed
+- Within an `EventFilter`: event types are OR'ed AND payload predicates are OR'ed
 - Within an `EventQuery`: filters are OR'ed
-- This provides flexible querying: `(eventType1 OR eventType2) AND (payload1 OR payload2) OR (eventType3 AND payload3)`
-
-
-
+- This provides flexible querying: `((eventType1 OR eventType2) AND (payload1 OR payload2)) OR (eventType3 AND payload3)`
 
 
 ## License
