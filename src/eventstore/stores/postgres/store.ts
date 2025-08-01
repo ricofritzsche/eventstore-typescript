@@ -1,10 +1,19 @@
-import { Event, EventStore, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription, EventQuery } from '../../types';
+import {
+  Event,
+  EventStore,
+  QueryResult,
+  EventStreamNotifier,
+  HandleEvents,
+  EventSubscription,
+  EventQuery,
+  EventFilter,
+} from '../../types';
 import { buildContextQuerySql, buildAppendSql } from './sql';
 import { mapRecordsToEvents, extractMaxSequenceNumber, prepareInsertParams } from './transform';
-import { 
-  CREATE_EVENTS_TABLE, 
-  CREATE_EVENT_TYPE_INDEX, 
-  CREATE_OCCURRED_AT_INDEX, 
+import {
+  CREATE_EVENTS_TABLE,
+  CREATE_EVENT_TYPE_INDEX,
+  CREATE_OCCURRED_AT_INDEX,
   CREATE_PAYLOAD_GIN_INDEX,
   createDatabaseQuery,
   changeDatabaseInConnectionString,
@@ -46,15 +55,22 @@ export class PostgresEventStore implements EventStore {
     this.notifier = options.notifier ?? new MemoryEventStreamNotifier();
   }
 
-  async query(filterCriteria: EventQuery): Promise<QueryResult> {
+  async query(eventQuery: EventQuery): Promise<QueryResult>;
+  async query(eventFilter: EventFilter): Promise<QueryResult>;
+  async query(queryOrFilter: EventQuery | EventFilter): Promise<QueryResult> {
     const client = await this.pool.connect();
     try {
-      const query = buildContextQuerySql(filterCriteria);
-      const result = await client.query(query.sql, query.params);
+      // If it's an EventFilter, wrap it in an EventQuery
+      const eventQuery = 'filters' in queryOrFilter 
+        ? queryOrFilter as EventQuery 
+        : createQuery(queryOrFilter as EventFilter);
+      
+      const sqlQuery = buildContextQuerySql(eventQuery);
+      const result = await client.query(sqlQuery.sql, sqlQuery.params);
 
-      return { 
-        events: mapRecordsToEvents(result), 
-        maxSequenceNumber: extractMaxSequenceNumber(result) 
+      return {
+        events: mapRecordsToEvents(result),
+        maxSequenceNumber: extractMaxSequenceNumber(result)
       };
     } finally {
       client.release();
@@ -66,12 +82,27 @@ export class PostgresEventStore implements EventStore {
   }
 
 
-  async append(events: Event[], filterCriteria?: EventQuery,  expectedMaxSequenceNumber?: number): Promise<void> {
+  async append(events: Event[]): Promise<void>;
+  async append(events: Event[], filterCriteria: EventQuery, expectedMaxSequenceNumber: number): Promise<void>;
+  async append(events: Event[], filterCriteria: EventFilter, expectedMaxSequenceNumber: number): Promise<void>;
+  async append(events: Event[], filterCriteria?: EventQuery | EventFilter,  expectedMaxSequenceNumber?: number): Promise<void> {
     if (events.length === 0) return;
 
-    if (filterCriteria === undefined || filterCriteria.filters.length === 0) {
-      filterCriteria = createQuery(createFilter([NON_EXISTENT_EVENT_TYPE]));
+    // Convert EventFilter to EventQuery if needed
+    let eventQuery: EventQuery;
+    if (filterCriteria === undefined) {
+      eventQuery = createQuery(createFilter([NON_EXISTENT_EVENT_TYPE]));
       expectedMaxSequenceNumber = 0;
+    } else if ('filters' in filterCriteria) {
+      // It's an EventQuery
+      eventQuery = filterCriteria;
+      if (eventQuery.filters.length === 0) {
+        eventQuery = createQuery(createFilter([NON_EXISTENT_EVENT_TYPE]));
+        expectedMaxSequenceNumber = 0;
+      }
+    } else {
+      // It's an EventFilter, wrap it in EventQuery
+      eventQuery = createQuery(filterCriteria);
     }
 
     if (expectedMaxSequenceNumber === undefined)
@@ -79,7 +110,7 @@ export class PostgresEventStore implements EventStore {
 
     const client = await this.pool.connect();
     try {
-      const cteQuery = buildAppendSql(filterCriteria, expectedMaxSequenceNumber);
+      const cteQuery = buildAppendSql(eventQuery, expectedMaxSequenceNumber);
       const params = prepareInsertParams(events, cteQuery.params);
 
       const result = await client.query(cteQuery.sql, params);
@@ -109,13 +140,13 @@ export class PostgresEventStore implements EventStore {
 
   private async createDatabase(): Promise<void> {
     const adminConnectionString = changeDatabaseInConnectionString(
-      process.env.DATABASE_URL!, 
+      process.env.DATABASE_URL!,
       'postgres'
     );
-    
+
     const adminPool = new Pool({ connectionString: adminConnectionString });
     const client = await adminPool.connect();
-    
+
     try {
       await client.query(createDatabaseQuery(this.databaseName));
       console.log(`Database created: ${this.databaseName}`);

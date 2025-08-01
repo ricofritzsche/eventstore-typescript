@@ -230,9 +230,15 @@ const currentState = await eventStore.query(accountQuery);
 const expectedMaxSeq = currentState.maxSequenceNumber;
 
 try {
-  // Atomic append - only succeeds if no conflicting events were added
+  // Atomic append using EventQuery - only succeeds if no conflicting events were added
   await eventStore.append(accountEvents, accountQuery, expectedMaxSeq);
   console.log('Deposit successful');
+  
+  // Alternative: Using EventFilter for backward compatibility
+  const accountFilter = createFilter(['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn'], 
+    [{ accountId: 'acc-123' }]);
+  await eventStore.append(accountEvents, accountFilter, expectedMaxSeq);
+  
 } catch (error) {
   if (error.message.includes('optimistic locking')) {
     // Retry the operation with updated state
@@ -317,11 +323,14 @@ class PostgresEventStore {
   // Initialize database schema
   async initializeDatabase(): Promise<void>
   
-  // Query events with filtering using EventQuery
-  async query(filterCriteria: EventQuery): Promise<QueryResult>
+  // Query events with filtering using EventQuery or EventFilter
+  async query(eventQuery: EventQuery): Promise<QueryResult>
+  async query(eventFilter: EventFilter): Promise<QueryResult>
   
-  // Append events with optimistic locking
-  async append(events: Event[], filterCriteria?: EventQuery, expectedMaxSequenceNumber?: number): Promise<void>
+  // Append events with multiple overloads for flexibility
+  async append(events: Event[]): Promise<void>
+  async append(events: Event[], filterCriteria: EventQuery, expectedMaxSequenceNumber: number): Promise<void>
+  async append(events: Event[], filterCriteria: EventFilter, expectedMaxSequenceNumber: number): Promise<void>
   
   // Subscribe to new events
   async subscribe(handle: HandleEvents): Promise<EventSubscription>
@@ -331,7 +340,7 @@ class PostgresEventStore {
 }
 ```
 
-### Query Functions
+### Query and Filter Functions
 
 ```typescript
 // Create event filters (AND within filter, OR between payload predicates)
@@ -339,6 +348,19 @@ createFilter(eventTypes: string[], payloadPredicates?: Record<string, unknown>[]
 
 // Create event queries (OR between filters)
 createQuery(...filters: EventFilter[]): EventQuery
+```
+
+### Append Method Overloads
+
+```typescript
+// Simple append without consistency checks
+await eventStore.append(events);
+
+// Append with EventQuery and optimistic locking
+await eventStore.append(events, eventQuery, expectedMaxSequenceNumber);
+
+// Append with EventFilter and optimistic locking (backward compatible)
+await eventStore.append(events, eventFilter, expectedMaxSequenceNumber);
 ```
 
 ### EventQuery Structure
@@ -358,6 +380,30 @@ interface EventQuery {
 - Within an `EventFilter`: event types are OR'ed AND payload predicates are OR'ed
 - Within an `EventQuery`: filters are OR'ed
 - This provides flexible querying: `((eventType1 OR eventType2) AND (payload1 OR payload2)) OR (eventType3 AND payload3)`
+
+### Backward Compatibility
+
+The EventStore maintains full backward compatibility with existing code using `EventFilter`:
+
+```typescript
+// Legacy approach (still supported)
+const filter = createFilter(['UserRegistered'], [{ userId: '123' }]);
+const result = await eventStore.query(filter);
+
+// With optimistic locking using EventFilter
+const currentState = await eventStore.query(filter);
+await eventStore.append(newEvents, filter, currentState.maxSequenceNumber);
+
+// New approach with EventQuery
+const query = createQuery(
+  createFilter(['UserRegistered'], [{ userId: '123' }]),
+  createFilter(['UserUpdated'], [{ userId: '123' }])
+);
+const result2 = await eventStore.query(query);
+
+// EventFilter is automatically converted to EventQuery internally
+// Both approaches provide the same functionality and performance
+```
 
 
 ## License
