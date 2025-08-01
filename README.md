@@ -1,6 +1,6 @@
 # EventStore
 
-[![npm version](https://badge.fury.io/js/@ricofritzsche%2Feventstore.svg)](https://www.npmjs.com/package/@ricofritzsche/eventstore)
+[![npm version](https://img.shields.io/npm/v/@ricofritzsche/eventstore.svg)](https://www.npmjs.com/package/@ricofritzsche/eventstore)
 
 A comprehensive TypeScript implementation of event sourcing with real-time event subscriptions and projections. 
 This system provides persistent event storage with automatic notification to subscribers for building responsive, event-sourced applications.
