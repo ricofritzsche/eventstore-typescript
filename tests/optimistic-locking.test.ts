@@ -34,7 +34,7 @@ describe('Optimistic Locking CTE Condition', () => {
   it('should succeed when sequence number matches expected', async () => {
     // Create a temporary event type name
     const eventType = `TestEvent_${Date.now()}_1`;
-    const filter = createQuery(createFilter([eventType]));
+    const filter = createFilter([eventType]);
 
     // There should be no events for that so far
     const initialResult = await eventStore.query(filter);

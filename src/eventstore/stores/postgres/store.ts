@@ -55,15 +55,15 @@ export class PostgresEventStore implements EventStore {
     this.notifier = options.notifier ?? new MemoryEventStreamNotifier();
   }
 
-  async query(eventQuery: EventQuery): Promise<QueryResult>;
-  async query(eventFilter: EventFilter): Promise<QueryResult>;
-  async query(queryOrFilter: EventQuery | EventFilter): Promise<QueryResult> {
+  async query(filterCriteria: EventQuery): Promise<QueryResult>;
+  async query(filterCriteria: EventFilter): Promise<QueryResult>;
+  async query(filterCriteria: EventQuery | EventFilter): Promise<QueryResult> {
     const client = await this.pool.connect();
     try {
       // If it's an EventFilter, wrap it in an EventQuery
-      const eventQuery = 'filters' in queryOrFilter 
-        ? queryOrFilter as EventQuery 
-        : createQuery(queryOrFilter as EventFilter);
+      const eventQuery = 'filters' in filterCriteria 
+        ? filterCriteria as EventQuery 
+        : createQuery(filterCriteria as EventFilter);
       
       const sqlQuery = buildContextQuerySql(eventQuery);
       const result = await client.query(sqlQuery.sql, sqlQuery.params);
