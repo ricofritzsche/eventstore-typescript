@@ -1,6 +1,6 @@
 {
   "name": "@ricofritzsche/eventstore",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "A TypeScript event sourcing library with Postgres persistence, real-time subscriptions, and projection support for building responsive event-sourced applications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
