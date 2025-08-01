@@ -1,4 +1,4 @@
-import { EventFilter, createFilter } from '../../../../eventstore';
+import { EventFilter, createFilter, createQuery } from '../../../../eventstore';
 import { EventStore } from '../../../../eventstore/types';
 import { OpenBankAccountCommand, OpenAccountResult } from './types';
 import { foldOpenAccountState, decideOpenAccount } from './core';
@@ -11,7 +11,7 @@ export async function execute(
 ): Promise<OpenAccountResult> {
   const accountId = uuidv4();
   
-  const filter = createFilter(['BankAccountOpened']);
+  const filter = createQuery(createFilter(['BankAccountOpened']));
   const queryResult = await eventStore.query(filter);
   const state = foldOpenAccountState(queryResult.events);
   const result = decideOpenAccount(command, accountId, state);

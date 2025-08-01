@@ -1,5 +1,6 @@
-import { Event, EventStore, EventRecord, EventFilter, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
+import { Event, EventStore, EventRecord, EventFilter, EventQuery, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
 import { MemoryEventStreamNotifier } from '../../notifiers';
+import { createQuery } from '../../filter';
 
 import { EventStream } from './eventstream';
 import { processQuery } from './queryprocessor';
@@ -11,17 +12,25 @@ export class MemoryEventStore implements EventStore {
   private notifier: EventStreamNotifier = new MemoryEventStreamNotifier();
   private lock: ReadWriteLockFIFO = new ReadWriteLockFIFO();
 
-  async query(filter?: EventFilter): Promise<QueryResult> {
-    return await this.queryWithLock(filter, this.lock);
+  async query(): Promise<QueryResult>;
+  async query(eventQuery: EventQuery): Promise<QueryResult>;
+  async query(eventFilter: EventFilter): Promise<QueryResult>;
+  async query(queryOrFilter?: EventQuery | EventFilter): Promise<QueryResult> {
+    // If it's an EventFilter, wrap it in an EventQuery
+    const eventQuery = queryOrFilter && !('filters' in queryOrFilter)
+      ? createQuery(queryOrFilter as EventFilter)
+      : queryOrFilter as EventQuery | undefined;
+
+    return await this.queryWithLock(eventQuery, this.lock);
   }
 
-  async queryWithLock(filter?: EventFilter, lock?: ReadWriteLockFIFO): Promise<QueryResult> {
+  async queryWithLock(query?: EventQuery, lock?: ReadWriteLockFIFO): Promise<QueryResult> {
     if (lock)
         await lock.acquireRead();
     try {
-        const matchingEvents = processQuery(this.eventStream.eventRecords, filter);
+        const matchingEvents = processQuery(this.eventStream.eventRecords, query);
         const maxSequenceNumber = matchingEvents.length > 0 ? matchingEvents[matchingEvents.length - 1]?.sequenceNumber : 0;
-        return { 
+        return {
             events: matchingEvents,
             maxSequenceNumber: maxSequenceNumber || 0
         };
@@ -31,20 +40,37 @@ export class MemoryEventStore implements EventStore {
     }
   }
 
+  async queryAll(): Promise<QueryResult> {
+    const events = this.eventStream.eventRecords;
+    const maxSequenceNumber = events.length > 0 ? events[events.length - 1]?.sequenceNumber || 0 : 0;
+    return {
+      events,
+      maxSequenceNumber
+     };
+  }
 
-  async append(events: Event[], filter?: EventFilter,  expectedMaxSequenceNumber?: number): Promise<void> {
+
+  async append(events: Event[]): Promise<void>;
+  async append(events: Event[], filterCriteria: EventQuery, expectedMaxSequenceNumber: number): Promise<void>;
+  async append(events: Event[], filterCriteria: EventFilter, expectedMaxSequenceNumber: number): Promise<void>;
+  async append(events: Event[], queryOrFilter?: EventQuery | EventFilter,  expectedMaxSequenceNumber?: number): Promise<void> {
     await this.lock.acquireWrite();
     try {
         if (expectedMaxSequenceNumber) {
-            const currentQueryResult = await this.queryWithLock(filter, undefined);
+            // Convert EventFilter to EventQuery if needed
+            const eventQuery = queryOrFilter && !('filters' in queryOrFilter)
+              ? createQuery(queryOrFilter as EventFilter)
+              : queryOrFilter as EventQuery | undefined;
+              
+            const currentQueryResult = await this.queryWithLock(eventQuery, undefined);
             if ((currentQueryResult).maxSequenceNumber !== expectedMaxSequenceNumber) {
                 throw new Error('eventstore-stores-memory-err05: Context changed: events were modified between query() and append()');
             }
         }
 
         const eventRecords = this.eventStream.append(events);
-        
-        await this.notifier.notify(eventRecords); 
+
+        await this.notifier.notify(eventRecords);
             // TODO: or should this be moved after the lock release? would probably require queueing notifications to keep them in order
     }
     finally {

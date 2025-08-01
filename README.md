@@ -2,7 +2,8 @@
 
 [![npm version](https://badge.fury.io/js/@ricofritzsche%2Feventstore.svg)](https://www.npmjs.com/package/@ricofritzsche/eventstore)
 
-A comprehensive TypeScript implementation of event sourcing with real-time event subscriptions and projections. This system provides persistent event storage with automatic notification to subscribers for building responsive, event-sourced applications.
+A comprehensive TypeScript implementation of event sourcing with real-time event subscriptions and projections. 
+This system provides persistent event storage with automatic notification to subscribers for building responsive, event-sourced applications.
 
 This package is a collaboration between [Ralf Westphal](https://github.com/ralfw) and [Rico Fritzsche](https://github.com/ricofritzsche).
 
@@ -38,15 +39,16 @@ The system is built around a core EventStore with pluggable notification system.
 **Purpose**: Persistent event storage with real-time notifications
 
 **Key Components**:
-- **`types.ts`** - Core interfaces (Event, EventStore, EventStreamNotifier)
-- **`stores/postgres/`** - PostgreSQL implementation with subscription support
+- **`types.ts`** - Core interfaces (Event, EventStore, EventQuery, EventStreamNotifier)
+- **`stores/postgres/`** - PostgreSQL implementation of EventStore with subscription support
+- **`stores/memory/`** - In-memory implementation of EventStore with subscription support
 - **`notifiers/memory/`** - In-memory notification system (default)
-- **`filter/`** - Event filters
+- **`filter/`** - Event filters and queries
 
 **Responsibilities**:
-- Store events immutably in PostgreSQL
-- Query events with filtering and payload-based searches
-- Provide optimistic locking for consistency
+- Store events immutably in storage medium, e.g. PostgreSQL database or in-memory
+- Query events with complex filtering using EventQuery
+- Provide atomic consistency through optimistic locking (with CTE-based approach (Postgres))
 - Notify subscribers immediately when events are appended
 - Manage subscription lifecycle
 
@@ -73,36 +75,36 @@ The system is built around a core EventStore with pluggable notification system.
 ## Event Flow Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                                Event Flow                                       │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                                Event Flow                                      │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
 │  ┌─────────────┐  append()  ┌─────────────┐   notify()   ┌─────────────┐       │
-│  │   Command   │ ─────────▶ │ EventStore  │ ────────────▶ │   Event     │       │
+│  │   Command   │ ─────────▶ │ EventStore  │ ───────────▶ │   Event     │       │
 │  │  Handler    │            │             │              │  Notifier   │       │
 │  └─────────────┘            └─────────────┘              └─────────────┘       │
-│                                     │                            │              │
-│                                     ▼                            ▼              │
+│                                     │                            │             │
+│                                     ▼                            ▼             │
 │  ┌─────────────┐            ┌─────────────┐              ┌─────────────┐       │
 │  │  PostgreSQL │            │   Events    │              │  Multiple   │       │
 │  │  Database   │            │   Saved     │              │ Subscribers │       │
 │  └─────────────┘            └─────────────┘              └─────────────┘       │
-│                                                                   │              │
-│                                                                   ▼              │
+│                                                                   │            │
+│                                                                   ▼            │
 │                                                          ┌─────────────┐       │
 │  ┌─────────────┐                                         │ Concurrent  │       │
 │  │  Queries    │ ◀───────────────────────────────────────│ Processing  │       │
 │  │             │                                         │             │       │
 │  └─────────────┘                                         └─────────────┘       │
-│                                                                   │              │
-│                                                                   ▼              │
+│                                                                   │            │
+│                                                                   ▼            │
 │                                                          ┌─────────────┐       │
 │                                                          │ Projections │       │
 │                                                          │   Updated   │       │
 │                                                          └─────────────┘       │
-│                                                                                 │
-│                          Real-time, concurrent event processing                 │
-└─────────────────────────────────────────────────────────────────────────────────┘
+│                                                                                │
+│                          Real-time, concurrent event processing                │
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Subscription System
@@ -110,10 +112,10 @@ The system is built around a core EventStore with pluggable notification system.
 The subscription system enables real-time, concurrent processing:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                         Subscription Architecture                               │
-├─────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                 │
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                         Subscription Architecture                              │
+├────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                │
 │                              ┌─────────────┐                                   │
 │                              │ EventStore  │                                   │
 │                              │             │                                   │
@@ -130,24 +132,24 @@ The subscription system enables real-time, concurrent processing:
 │                              │(Memory)     │                                   │
 │                              └──────┬──────┘                                   │
 │                                     │                                          │
-│                    ┌────────────────┼────────────────┐                        │
-│                    │                │                │                        │
-│                    ▼                ▼                ▼                        │
-│            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
-│            │ Projection  │  │ Analytics   │  │   Business  │                 │
-│            │ Subscriber  │  │ Subscriber  │  │ Logic       │                 │
-│            │             │  │             │  │ Subscriber  │                 │
-│            └─────────────┘  └─────────────┘  └─────────────┘                 │
-│                    │                │                │                        │
-│                    ▼                ▼                ▼                        │
-│            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
-│            │ Read Model  │  │ Metrics &   │  │ Notifications│                 │
-│            │ Database    │  │ Reports     │  │ & Workflows │                 │
-│            │             │  │             │  │             │                 │
-│            └─────────────┘  └─────────────┘  └─────────────┘                 │
-│                                                                                 │
+│                    ┌────────────────┼────────────────┐                         │
+│                    │                │                │                         │
+│                    ▼                ▼                ▼                         │
+│            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                   │
+│            │ Projection  │  │ Analytics   │  │   Business  │                   │
+│            │ Subscriber  │  │ Subscriber  │  │ Logic       │                   │
+│            │             │  │             │  │ Subscriber  │                   │
+│            └─────────────┘  └─────────────┘  └─────────────┘                   │
+│                    │                │                │                         │
+│                    ▼                ▼                ▼                         │
+│            ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                   │
+│            │ Read Model  │  │ Metrics &   │  │ Notifications│                  │
+│            │ Database    │  │ Reports     │  │ & Workflows │                   │
+│            │             │  │             │  │             │                   │
+│            └─────────────┘  └─────────────┘  └─────────────┘                   │
+│                                                                                │
 │              Concurrent, independent processing of the same events             │
-└─────────────────────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Quick Start
@@ -164,12 +166,113 @@ docker run --name eventstore-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_
 export DATABASE_URL="postgres://postgres:postgres@localhost:5432/bank"
 ```
 
-### 2. Basic Usage
+### 2. EventQuery
 ```typescript
-import { PostgresEventStore, createFilter } from '@ricofritzsche/eventstore';
+import { PostgresEventStore, MemoryEventStore, createQuery, createFilter } from '@ricofritzsche/eventstore';
+
+// Postgres
+const eventStore = new PostgresEventStore( {connectionstring: "..."} ); 
+await eventStore.initializeDatabase();
+
+// In-memory
+// const eventStore = new MemoryEventStore();
+
+// Create events
+const events = [
+  { eventType: 'UserRegistered', payload: { userId: '123', email: 'user@example.com' } },
+  { eventType: 'UserEmailVerified', payload: { userId: '123', verifiedAt: new Date() } }
+];
+
+// Subscribe before appending to catch real-time events
+const subscription = await eventStore.subscribe(async (events) => {
+console.log(`Received ${events.length} new events`);
+  // Process events immediately as they're appended
+});
+
+// Append events - subscribers will be notified automatically
+await eventStore.append(events);
+
+// Query historical events using EventQuery (supports complex OR conditions)
+const userFilter = createFilter(['UserRegistered', 'UserEmailVerified'], [{ userId: '123' }]);
+const adminFilter = createFilter(['AdminAction'], [{ action: 'user_management' }]);
+const query = createQuery(userFilter, adminFilter); // OR between filters
+
+const result = await eventStore.query(query);
+console.log(`Found ${result.events.length} historical events`);
+
+// Example: Query with payload conditions
+const specificUserQuery = createQuery(
+  createFilter(['UserRegistered'], [{ email: 'user@example.com' }]),
+  createFilter(['UserEmailVerified'], [{ userId: '123' }])
+);
+const specificResult = await eventStore.query(specificUserQuery);
+```
+
+### 3. Atomic Consistency with Optimistic Locking
+
+The EventStore provides atomic consistency through optimistic locking using Common Table Expressions (CTEs (Postgres)). 
+This approach ensures that concurrent operations only conflict when they actually depend on the same event context, rather than using traditional aggregate-level locking.
+
+```typescript
+// Atomic append with consistency check
+const accountEvents = [
+  { eventType: 'MoneyDeposited', payload: { accountId: 'acc-123', amount: 100 } }
+];
+
+// Create a query for the specific context we want to protect
+const accountQuery = createQuery(
+  createFilter(['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn'], 
+               [{ accountId: 'acc-123' }])
+);
+
+// Get current state to determine expected sequence number
+const currentState = await eventStore.query(accountQuery);
+const expectedMaxSeq = currentState.maxSequenceNumber;
+
+try {
+  // Atomic append using EventQuery - only succeeds if no conflicting events were added
+  await eventStore.append(accountEvents, accountQuery, expectedMaxSeq);
+  console.log('Deposit successful');
+  
+  // Alternative: Using EventFilter for backward compatibility
+  const accountFilter = createFilter(['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn'], 
+    [{ accountId: 'acc-123' }]);
+  await eventStore.append(accountEvents, accountFilter, expectedMaxSeq);
+  
+} catch (error) {
+  if (error.message.includes('optimistic locking')) {
+    // Retry the operation with updated state
+    console.log('Concurrent modification detected, retrying...');
+  }
+}
+```
+
+**How CTE-based Consistency Works (Postgres):**
+
+1. **Context-Specific Protection**: Only events matching the query filter are considered for consistency
+2. **Atomic Check-and-Insert**: Uses SQL CTE to check max sequence number and insert events in one transaction
+3. **Reduced Conflicts**: Commands only conflict when they actually affect the same business context
+4. **High Concurrency**: Multiple commands can run simultaneously if they don't share context
+
+The underlying SQL implementation:
+```sql
+WITH context AS (
+  SELECT MAX(sequence_number) AS max_seq
+  FROM events
+  WHERE [filter conditions]
+)
+INSERT INTO events (event_type, payload, sequence_number)
+SELECT event_type, payload, (max_seq + row_number())
+FROM context, unnest($1) AS new_events
+WHERE COALESCE(max_seq, 0) = $2
+```
+
+### 4. Event Subscription
+```typescript
+import { PostgresEventStore, createQuery, createFilter } from '@ricofritzsche/eventstore';
 
 // Create EventStore with default MemoryEventStreamNotifier
-const eventStore = new PostgresEventStore();
+const eventStore = new PostgresEventStore({connectionstring: "..."});
 await eventStore.initializeDatabase();
 
 // Subscribe to events for real-time processing
@@ -189,42 +292,9 @@ const subscription = await eventStore.subscribe(async (events) => {
     }
   }
 });
-````
-
-
-
-### 3. Advanced Usage with Subscriptions
-```typescript
-import { PostgresEventStore, createFilter } from '@ricofritzsche/eventstore';
-
-const eventStore = new PostgresEventStore();
-await eventStore.initializeDatabase();
-
-// Create events
-const events = [
-  { eventType: 'UserRegistered', payload: { userId: '123', email: 'user@example.com' } },
-  { eventType: 'UserEmailVerified', payload: { userId: '123', verifiedAt: new Date() } }
-];
-
-// Subscribe before appending to catch real-time events
-const subscription = await eventStore.subscribe(async (events) => {
-  console.log(`Received ${events.length} new events`);
-  // Process events immediately as they're appended
-});
-
-// Append events - subscribers will be notified automatically
-await eventStore.append(events);
-
-// Query historical events
-const filter = createFilter(['UserRegistered', 'UserEmailVerified']);
-const result = await eventStore.query(filter);
-
-console.log(`Found ${result.events.length} historical events`);
 ```
 
-
-
-### 4. Pluggable Notifiers
+### 5. Pluggable Notifiers
 Replace the notification system with your own:
 
 ```typescript
@@ -253,11 +323,14 @@ class PostgresEventStore {
   // Initialize database schema
   async initializeDatabase(): Promise<void>
   
-  // Query events with filtering
-  async query(filter: EventFilter): Promise<QueryResult>
+  // Query events with filtering using EventQuery or EventFilter
+  async query(eventQuery: EventQuery): Promise<QueryResult>
+  async query(eventFilter: EventFilter): Promise<QueryResult>
   
-  // Append events with optimistic locking
-  async append(events: Event[], filter?: EventFilter, expectedMaxSequenceNumber?: number): Promise<void>
+  // Append events with multiple overloads for flexibility
+  async append(events: Event[]): Promise<void>
+  async append(events: Event[], filterCriteria: EventQuery, expectedMaxSequenceNumber: number): Promise<void>
+  async append(events: Event[], filterCriteria: EventFilter, expectedMaxSequenceNumber: number): Promise<void>
   
   // Subscribe to new events
   async subscribe(handle: HandleEvents): Promise<EventSubscription>
@@ -267,15 +340,70 @@ class PostgresEventStore {
 }
 ```
 
-### Filter Functions
+### Query and Filter Functions
 
 ```typescript
-// Create event filters
+// Create event filters (AND within filter, OR between payload predicates)
 createFilter(eventTypes: string[], payloadPredicates?: Record<string, unknown>[]): EventFilter
+
+// Create event queries (OR between filters)
+createQuery(...filters: EventFilter[]): EventQuery
 ```
 
+### Append Method Overloads
 
+```typescript
+// Simple append without consistency checks
+await eventStore.append(events);
 
+// Append with EventQuery and optimistic locking
+await eventStore.append(events, eventQuery, expectedMaxSequenceNumber);
+
+// Append with EventFilter and optimistic locking (backward compatible)
+await eventStore.append(events, eventFilter, expectedMaxSequenceNumber);
+```
+
+### EventQuery Structure
+
+```typescript
+interface EventFilter {
+  readonly eventTypes: string[]; // OR condition
+  readonly payloadPredicates?: Record<string, unknown>[]; // OR condition
+}
+
+interface EventQuery {
+  readonly filters: EventFilter[]; // OR condition between filters
+}
+```
+
+**Query Logic:**
+- Within an `EventFilter`: event types are OR'ed AND payload predicates are OR'ed
+- Within an `EventQuery`: filters are OR'ed
+- This provides flexible querying: `((eventType1 OR eventType2) AND (payload1 OR payload2)) OR (eventType3 AND payload3)`
+
+### Backward Compatibility
+
+The EventStore maintains full backward compatibility with existing code using `EventFilter`:
+
+```typescript
+// Legacy approach (still supported)
+const filter = createFilter(['UserRegistered'], [{ userId: '123' }]);
+const result = await eventStore.query(filter);
+
+// With optimistic locking using EventFilter
+const currentState = await eventStore.query(filter);
+await eventStore.append(newEvents, filter, currentState.maxSequenceNumber);
+
+// New approach with EventQuery
+const query = createQuery(
+  createFilter(['UserRegistered'], [{ userId: '123' }]),
+  createFilter(['UserUpdated'], [{ userId: '123' }])
+);
+const result2 = await eventStore.query(query);
+
+// EventFilter is automatically converted to EventQuery internally
+// Both approaches provide the same functionality and performance
+```
 
 
 ## License

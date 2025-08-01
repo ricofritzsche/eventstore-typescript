@@ -1,4 +1,4 @@
-import { EventFilter } from '../types';
+import { EventFilter, EventQuery } from '../types';
 
 export function createFilter(
   eventTypes: string[],
@@ -8,4 +8,8 @@ export function createFilter(
     eventTypes,
     ...(payloadPredicates && { payloadPredicates })
   };
+}
+
+export function createQuery(...filters: EventFilter[]): EventQuery {
+  return { filters };
 }

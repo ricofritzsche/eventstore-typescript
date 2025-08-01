@@ -17,8 +17,13 @@ export interface EventRecord extends Event {
 }
 
 export interface EventFilter {
-  readonly eventTypes: string[];
-  readonly payloadPredicates?: Record<string, unknown>[];
+  readonly eventTypes: string[]; // OR
+  // AND
+  readonly payloadPredicates?: Record<string, unknown>[]; // OR
+}
+
+export interface EventQuery {
+  readonly filters: EventFilter[]; // OR
 }
 
 export interface QueryResult {
@@ -27,8 +32,13 @@ export interface QueryResult {
 }
 
 export interface EventStore {
-  query(filter: EventFilter): Promise<QueryResult>;
-  append(events: Event[], filter?: EventFilter, expectedMaxSequenceNumber?: number): Promise<void>;
+  query(filterCriteria: EventQuery): Promise<QueryResult>;
+  query(filterCriteria: EventFilter): Promise<QueryResult>;
+
+  append(events: Event[]): Promise<void>;
+  append(events: Event[], filterCriteria: EventQuery, expectedMaxSequenceNumber: number): Promise<void>;
+  append(events: Event[], filterCriteria: EventFilter, expectedMaxSequenceNumber: number): Promise<void>;
+  
   subscribe(handle: HandleEvents): Promise<EventSubscription>;
 }
 

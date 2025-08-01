@@ -1,4 +1,4 @@
-import { createFilter } from '../../../../eventstore';
+import { createFilter, createQuery } from '../../../../eventstore';
 import { EventStore } from '../../../../eventstore/types';
 import { TransferMoneyCommand, TransferResult } from './types';
 import { foldTransferState, decideTransfer } from './core';
@@ -8,7 +8,7 @@ export async function execute(
   eventStore: EventStore,
   command: TransferMoneyCommand
 ): Promise<TransferResult> {
-  const filter = createFilter(
+  const filter = createQuery(createFilter(
     ['BankAccountOpened', 'MoneyDeposited', 'MoneyWithdrawn', 'MoneyTransferred'],
     [
       { accountId: command.fromAccountId },
@@ -16,7 +16,7 @@ export async function execute(
       { toAccountId: command.fromAccountId },
       { fromAccountId: command.toAccountId }
     ]
-  );
+  ));
   
   const queryResult = await eventStore.query(filter);
   const state = foldTransferState(queryResult.events, command.fromAccountId, command.toAccountId);

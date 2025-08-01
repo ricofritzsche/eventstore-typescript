@@ -1,4 +1,4 @@
-import { createFilter } from "../../../filter";
+import { createFilter, createQuery } from "../../../filter";
 import { EventRecord } from "../../../types";
 import { MemoryEventStore } from "../index";
 
@@ -19,7 +19,7 @@ describe('MemoryEventStore', () => {
                 eventType: 'test2',
                 payload: {}
             }]);
-            let result = await sut.query(createFilter(["test2"]));
+            let result = await sut.query(createQuery(createFilter(["test2"])));
             expect(result.events.length).toBe(1);
             expect(result.events[0]?.eventType).toBe("test2");
             expect(result.events[0]?.sequenceNumber).toBe(2);
@@ -31,7 +31,7 @@ describe('MemoryEventStore', () => {
                 eventType: 'test2',
                 payload: {}
             }]);
-            result = await sut.query(createFilter(["test2"]));
+            result = await sut.query(createQuery(createFilter(["test2"])));
             expect(result.events.length).toBe(2);
             expect(result.events[0]?.eventType).toBe("test2");
             expect(result.events[0]?.sequenceNumber).toBe(2);
@@ -48,7 +48,7 @@ describe('MemoryEventStore', () => {
                 payload: {}
             }]);
 
-            const test1Filter = createFilter(["test1"]);
+            const test1Filter = createQuery(createFilter(["test1"]));
             let resultTest1 = await sut.query(test1Filter);
 
 
@@ -59,6 +59,21 @@ describe('MemoryEventStore', () => {
             // Now a conflict is expected!
             await expect(sut.append([{eventType: "test4", payload: {}}], test1Filter, resultTest1.maxSequenceNumber))
                 .rejects.toThrow("eventstore-stores-memory-err05")
+        });
+
+
+        it('query all events', async () => {
+            await sut.append([{
+                eventType: 'test1',
+                payload: {}
+            }, {
+                eventType: 'test2',
+                payload: {}
+            }]);
+            let result = await sut.queryAll();
+            expect(result.events.length).toBe(2);
+            expect(result.events[1]?.eventType).toBe("test2");
+            expect(result.events[1]?.sequenceNumber).toBe(2);
         });
     });
 
