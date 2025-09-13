@@ -1,0 +1,1 @@
+{"eventRecords":[{"sequenceNumber":1,"timestamp":"2025-09-13T16:45:09.735Z","eventType":"e1","payload":{"m":"hello"}},{"sequenceNumber":2,"timestamp":"2025-09-13T16:45:09.735Z","eventType":"e2","payload":{"m":"world"}}],"lastSequenceNumber":2}

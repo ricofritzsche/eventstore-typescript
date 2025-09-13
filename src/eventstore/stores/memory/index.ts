@@ -82,4 +82,20 @@ export class MemoryEventStore implements EventStore {
   async subscribe(handle: HandleEvents): Promise<EventSubscription> {
     return await this.notifier.subscribe(handle);
   }
+
+
+  async storeToFile(filename: string): Promise<void> {
+    const fs = await import('fs/promises');
+    const data = this.eventStream.serialize();
+    await fs.writeFile(filename, data, { encoding: 'utf-8' });
+  }
+
+  static async createFromFile(filename: string): Promise<MemoryEventStore> {
+    const fs = await import('fs/promises');
+    const data = await fs.readFile(filename, { encoding: 'utf-8' });
+    const eventStream = EventStream.deserialize(data);
+    const store = new MemoryEventStore();
+    store.eventStream = eventStream;
+    return store;
+  }  
 }

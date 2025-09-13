@@ -17,4 +17,26 @@ export class EventStream {
         this.eventRecords.push(...eventRecords);
         return eventRecords;
     }
+
+    serialize(): string {
+        const serializedRecords = this.eventRecords.map(record => ({
+            ...record,
+            timestamp: record.timestamp.toISOString()
+        }));
+        return JSON.stringify({
+            eventRecords: serializedRecords,
+            lastSequenceNumber: this.lastSequenceNumber
+        });
+    }
+
+    static deserialize(serialized: string): EventStream {
+        const obj = JSON.parse(serialized);
+        const eventStream = new EventStream();
+        eventStream.lastSequenceNumber = obj.lastSequenceNumber;
+        eventStream.eventRecords.push(...obj.eventRecords.map((record: any) => ({
+            ...record,
+            timestamp: new Date(record.timestamp)
+        })));
+        return eventStream;
+    }
 }

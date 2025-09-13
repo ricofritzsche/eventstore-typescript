@@ -1,6 +1,7 @@
 import { createFilter, createQuery } from "../../../filter";
 import { EventRecord } from "../../../types";
 import { MemoryEventStore } from "../index";
+import * as fs from 'fs';
 
 describe('MemoryEventStore', () => {
     let sut:MemoryEventStore;
@@ -120,5 +121,27 @@ describe('MemoryEventStore', () => {
             expect(results).toEqual(['append-done', 'query-done']);
         });
     }); 
+
+
+    describe("EventStore persistence", () => {
+        it("store and load", async () => {
+            try {
+                fs.unlinkSync("test.json");
+            } catch (err) {}
+
+            await sut.append([{eventType:"e1", payload:{m:"hello"}}, {eventType:"e2", payload:{m:"world"}}])
+            
+            await sut.storeToFile("test.json");
+            const loaded = await MemoryEventStore.createFromFile("test.json");
+            
+            expect((await loaded.queryAll()).events.length).toBe(2);
+            expect((await loaded.queryAll()).events[0]!.eventType).toBe("e1");
+            expect((await loaded.queryAll()).events[0]!.payload.m).toBe("hello");
+            expect((await loaded.queryAll()).events[0]!.sequenceNumber).toBe(1);
+            expect((await loaded.queryAll()).events[1]!.eventType).toBe("e2");
+            expect((await loaded.queryAll()).events[1]!.payload.m).toBe("world");
+            expect((await loaded.queryAll()).events[1]!.sequenceNumber).toBe(2);
+        });
+    })
 
 });
