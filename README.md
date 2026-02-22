@@ -381,6 +381,42 @@ interface EventQuery {
 - Within an `EventQuery`: filters are OR'ed
 - This provides flexible querying: `((eventType1 OR eventType2) AND (payload1 OR payload2)) OR (eventType3 AND payload3)`
 
+### MemoryEventStore
+
+The in-memory event store behaves just like the Postgres event store - except all events are just kept in memory.
+
+```typescript
+const es = new MemoryEventStore()
+...
+```
+
+The in-memory event store is a great tool for quick spikes and especially testing: inject the MemoryEventStore into SUTs during tests, inject the PostgresEventStore for production. The MemoryEventStore can easily be populated with events for testing before calling the SUT.
+
+#### Persistence
+
+For small, local applications/proof-of-concepts/spikes it's handy to work with the MemoryEventStore and also be able to persist its events. That can be done at any time like this:
+
+```typescript
+es.storeToFile("events.json");
+```
+
+Events are written to a file in a JSON data structure.
+
+To instantiate a MemoryEventStore from persisted events, call the factory method:
+
+```typescript
+const es1 = MemoryEventStore.createFromFile("events.json");
+const es2 = MemoryEventStore.createFromFile("events.json", true); // to ignoer a missing file
+```
+
+The MemoryEventStore can also be run in write-through mode, meaning that no explicit calls to persistence methods are needed. Rather the event store persists all changes automatically. That's quite slow, of course, but it's convenient and sufficient for small scenarios.
+
+```typescript
+const es1 = new MemoryEventStore("events.json") // when creating the event store with a file it's set to write-thru mode
+
+const es2 = MemoryEventStore.createFromFile("events.json", true, true) // the same happens when passing true as the last parameter to the factory method
+```
+
 ### Backward Compatibility
 
 The EventStore maintains full backward compatibility with existing code using `EventFilter`:
