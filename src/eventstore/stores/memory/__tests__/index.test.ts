@@ -142,6 +142,32 @@ describe('MemoryEventStore', () => {
             expect((await loaded.queryAll()).events[1]!.payload.m).toBe("world");
             expect((await loaded.queryAll()).events[1]!.sequenceNumber).toBe(2);
         });
+
+        it("createFromFile(ignoreMissingFile=true) returns empty store when file is missing", async () => {
+            const filename = "missing.json";
+            try {
+                fs.unlinkSync(filename);
+            } catch (err) {}
+
+            const loaded = await MemoryEventStore.createFromFile(filename, true);
+            expect((await loaded.queryAll()).events.length).toBe(0);
+        });
+
+        it("writeThruMode persists automatically on append()", async () => {
+            const filename = "write-thru.json";
+            try {
+                fs.unlinkSync(filename);
+            } catch (err) {}
+
+            const store = await MemoryEventStore.createFromFile(filename, true, true);
+            await store.append([{ eventType: "e1", payload: { m: "hello" } }]);
+
+            expect(fs.existsSync(filename)).toBe(true);
+            const reloaded = await MemoryEventStore.createFromFile(filename);
+            expect((await reloaded.queryAll()).events.length).toBe(1);
+            expect((await reloaded.queryAll()).events[0]!.eventType).toBe("e1");
+            expect((await reloaded.queryAll()).events[0]!.payload.m).toBe("hello");
+        });
     })
 
-});
+}); 

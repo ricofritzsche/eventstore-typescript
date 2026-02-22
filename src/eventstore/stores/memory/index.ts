@@ -1,16 +1,21 @@
-import { Event, EventStore, EventRecord, EventFilter, EventQuery, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
+import { Event, EventStore, EventFilter, EventQuery, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
 import { MemoryEventStreamNotifier } from '../../notifiers';
 import { createQuery } from '../../filter';
 
 import { EventStream } from './eventstream';
 import { processQuery } from './queryprocessor';
-import { ReadWriteLockFIFO } from "./readwritelock"
+import { ReadWriteLockFIFO } from './readwritelock';
 
 
 export class MemoryEventStore implements EventStore {
   private eventStream = new EventStream();
   private notifier: EventStreamNotifier = new MemoryEventStreamNotifier();
   private lock: ReadWriteLockFIFO = new ReadWriteLockFIFO();
+  private writeThruFilename: string | undefined;
+
+  constructor(writeThruFilename?: string) {
+    this.writeThruFilename = writeThruFilename;
+  }
 
   async query(): Promise<QueryResult>;
   async query(eventQuery: EventQuery): Promise<QueryResult>;
@@ -24,7 +29,7 @@ export class MemoryEventStore implements EventStore {
     return await this.queryWithLock(eventQuery, this.lock);
   }
 
-  async queryWithLock(query?: EventQuery, lock?: ReadWriteLockFIFO): Promise<QueryResult> {
+  private async queryWithLock(query?: EventQuery, lock?: ReadWriteLockFIFO): Promise<QueryResult> {
     if (lock)
         await lock.acquireRead();
     try {
@@ -56,7 +61,7 @@ export class MemoryEventStore implements EventStore {
   async append(events: Event[], queryOrFilter?: EventQuery | EventFilter,  expectedMaxSequenceNumber?: number): Promise<void> {
     await this.lock.acquireWrite();
     try {
-        if (expectedMaxSequenceNumber) {
+        if (expectedMaxSequenceNumber !== undefined) {
             // Convert EventFilter to EventQuery if needed
             const eventQuery = queryOrFilter && !('filters' in queryOrFilter)
               ? createQuery(queryOrFilter as EventFilter)
@@ -69,6 +74,10 @@ export class MemoryEventStore implements EventStore {
         }
 
         const eventRecords = this.eventStream.append(events);
+
+        if (this.writeThruFilename) {
+            await this.storeToFile(this.writeThruFilename);
+        }
 
         await this.notifier.notify(eventRecords);
             // TODO: or should this be moved after the lock release? would probably require queueing notifications to keep them in order
@@ -85,17 +94,35 @@ export class MemoryEventStore implements EventStore {
 
 
   async storeToFile(filename: string): Promise<void> {
-    const fs = await import('fs/promises');
+    const fs = await import('node:fs/promises');
     const data = this.eventStream.serialize();
     await fs.writeFile(filename, data, { encoding: 'utf-8' });
   }
 
-  static async createFromFile(filename: string): Promise<MemoryEventStore> {
-    const fs = await import('fs/promises');
-    const data = await fs.readFile(filename, { encoding: 'utf-8' });
-    const eventStream = EventStream.deserialize(data);
-    const store = new MemoryEventStore();
-    store.eventStream = eventStream;
-    return store;
+  static async createFromFile(
+    filename: string,
+    ignoreMissingFile: boolean = false,
+    writeThruMode: boolean = false,
+  ): Promise<MemoryEventStore> {
+    const fs = await import('node:fs/promises');
+
+    try {
+      const data = await fs.readFile(filename, { encoding: 'utf-8' });
+      const eventStream = EventStream.deserialize(data);
+      const store = new MemoryEventStore(writeThruMode ? filename : undefined);
+      store.eventStream = eventStream;
+      return store;
+    } catch (error) {
+      if (
+        ignoreMissingFile &&
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
+        return new MemoryEventStore(writeThruMode ? filename : undefined);
+      }
+      throw error;
+    }
   }  
 }
