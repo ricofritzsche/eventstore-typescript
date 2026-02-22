@@ -75,7 +75,8 @@ The EventStore module provides the core functionality for storing and retrieving
 ## Simple Example
 
 ```typescript
-import { PostgresEventStore, createFilter } from './eventstore';
+import { PostgresEventStore } from '@ricofritzsche/eventstore/postgres';
+import { createFilter } from '@ricofritzsche/eventstore';
 
 // Create event store with default MemoryEventStreamNotifier
 const eventStore = new PostgresEventStore();

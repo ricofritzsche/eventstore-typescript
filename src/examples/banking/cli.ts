@@ -2,7 +2,7 @@
 
 import * as readline from 'readline';
 import * as dotenv from 'dotenv';
-import { PostgresEventStore } from '../../eventstore';
+import { PostgresEventStore } from '../../postgres';
 import * as OpenBankAccount from './features/open-bank-account';
 import * as GetAccount from './features/get-account';
 import * as DepositMoney from './features/deposit-money';

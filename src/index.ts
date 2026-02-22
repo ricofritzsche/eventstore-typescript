@@ -1,6 +1,7 @@
-// Main Node.js entry point for @ricofritzsche/eventstore
+// Core entry point - no database dependencies
+// Exports: types, filters, notifiers, and memory store only
+
 export { MemoryEventStore } from './eventstore/stores/memory';
-export { PostgresEventStore, PostgresEventStoreOptions } from './eventstore/stores/postgres';
-export { MemoryEventStreamNotifier } from './eventstore/notifiers';
+export { MemoryEventStreamNotifier } from './eventstore/notifiers/memory';
 export { createFilter, createQuery } from './eventstore/filter';
 export * from './eventstore/types';

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "commonjs",
+    "module": "ESNext",
     "lib": ["ES2020"],
     "outDir": "./dist",
     "rootDir": "./src",
@@ -28,7 +28,10 @@
   },
   "include": [
     "src/eventstore/**/*",
-    "src/index.ts"
+    "src/index.ts",
+    "src/postgres.ts",
+    "src/mongodb.ts",
+    "src/redis.ts"
   ],
   "exclude": [
     "node_modules",
