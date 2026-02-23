@@ -1,10 +1,14 @@
 import { EventFilter, EventQuery, EventRecord } from '../../types';
 
 export function processQuery(events: EventRecord[], query?: EventQuery):EventRecord[] {
-    if (!query) {
-        return events;
+    let result = events;
+
+    if (query?.options?.minSequenceNumber !== undefined) {
+        result = result.filter(e => e.sequenceNumber > query.options!.minSequenceNumber!);
     }
-    return events.filter((e) => checkEventAgainstQuery(e, query));
+
+    if (!query || query.filters.length === 0) return result;
+    return result.filter((e) => checkEventAgainstQuery(e, query));
 }
 
 function checkEventAgainstQuery(event:EventRecord, query:EventQuery):boolean {
