@@ -63,6 +63,37 @@ describe('MemoryEventStore', () => {
         });
 
 
+        it('query with minSequenceNumber filters by type and sequence', async () => {
+            await sut.append([
+                { eventType: 'e1', payload: {} },
+                { eventType: 'e2', payload: {} },
+                { eventType: 'e1', payload: {} },
+                { eventType: 'e2', payload: {} },
+            ]);
+
+            const result = await sut.query(createQuery({ minSequenceNumber: 2 }, createFilter(['e1', 'e2'])));
+
+            expect(result.events.length).toBe(2);
+            expect(result.events[0]?.sequenceNumber).toBe(3);
+            expect(result.events[1]?.sequenceNumber).toBe(4);
+            expect(result.maxSequenceNumber).toBe(4);
+        });
+
+        it('query with minSequenceNumber without type filter returns all events after that point', async () => {
+            await sut.append([
+                { eventType: 'e1', payload: {} },
+                { eventType: 'e2', payload: {} },
+                { eventType: 'e3', payload: {} },
+            ]);
+
+            const result = await sut.query(createQuery({ minSequenceNumber: 1 }));
+
+            expect(result.events.length).toBe(2);
+            expect(result.events[0]?.sequenceNumber).toBe(2);
+            expect(result.events[1]?.sequenceNumber).toBe(3);
+            expect(result.maxSequenceNumber).toBe(3);
+        });
+
         it('query all events', async () => {
             await sut.append([{
                 eventType: 'test1',
