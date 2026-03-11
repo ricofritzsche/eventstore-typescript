@@ -21,12 +21,11 @@ describe('Transform Functions', () => {
 
       const result = deserializeEvent(row);
 
-      expect(result).toEqual({
-        payload: { data: 'test', userId: '456' },
-        eventType: 'UserCreated',
-        sequenceNumber: '123',
-        timestamp: '2023-01-01T00:00:00Z'
-      });
+      expect(result.payload).toEqual({ data: 'test', userId: '456' });
+      expect(result.eventType).toBe('UserCreated');
+      expect(result.sequenceNumber).toBe(123);
+      expect(result.timestamp).toBeInstanceOf(Date);
+      expect(result.timestamp.toISOString()).toBe('2023-01-01T00:00:00.000Z');
     });
 
     it('should handle already parsed JSON payload', () => {
@@ -39,12 +38,33 @@ describe('Transform Functions', () => {
 
       const result = deserializeEvent(row);
 
-      expect(result).toEqual({
-        payload: { data: 'test', userId: '456' },
-        eventType: 'UserCreated',
-        sequenceNumber: '123',
-        timestamp: '2023-01-01T00:00:00Z'
-      });
+      expect(result.payload).toEqual({ data: 'test', userId: '456' });
+      expect(result.eventType).toBe('UserCreated');
+      expect(result.sequenceNumber).toBe(123);
+      expect(result.timestamp).toBeInstanceOf(Date);
+      expect(result.timestamp.toISOString()).toBe('2023-01-01T00:00:00.000Z');
+    });
+
+    it('should throw when sequence number is not a safe integer', () => {
+      const row = {
+        event_type: 'UserCreated',
+        sequence_number: '9007199254740992',
+        occurred_at: '2023-01-01T00:00:00Z',
+        payload: { data: 'test', userId: '456' }
+      };
+
+      expect(() => deserializeEvent(row)).toThrow('eventstore-stores-postgres-err09');
+    });
+
+    it('should throw when timestamp is invalid', () => {
+      const row = {
+        event_type: 'UserCreated',
+        sequence_number: '123',
+        occurred_at: 'not-a-date',
+        payload: { data: 'test', userId: '456' }
+      };
+
+      expect(() => deserializeEvent(row)).toThrow('eventstore-stores-postgres-err10');
     });
   });
 

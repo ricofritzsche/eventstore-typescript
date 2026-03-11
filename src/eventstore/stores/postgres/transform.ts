@@ -1,11 +1,27 @@
 import { QueryResult } from 'pg';
 import { EventRecord, Event } from '../../types';
 
+function toSequenceNumber(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isInteger(parsed) || !Number.isSafeInteger(parsed)) {
+    throw new Error('eventstore-stores-postgres-err09: sequence_number is not a safe integer');
+  }
+  return parsed;
+}
+
+function toTimestamp(value: unknown): Date {
+  const parsed = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error('eventstore-stores-postgres-err10: occurred_at is not a valid timestamp');
+  }
+  return parsed;
+}
+
 
 export function deserializeEvent(row: any): EventRecord {
   return {
-    sequenceNumber: row.sequence_number,
-    timestamp: row.occurred_at,
+    sequenceNumber: toSequenceNumber(row.sequence_number),
+    timestamp: toTimestamp(row.occurred_at),
     eventType: row.event_type,
     payload: typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload,
   };
