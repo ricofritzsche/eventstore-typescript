@@ -16,7 +16,9 @@
     "dev": "ts-node src/index.ts",
     "example": "ts-node src/examples/banking/cli.ts",
     "simple": "ts-node simple.ts",
+    "supabase:sql": "ts-node scripts/generate-supabase-setup-sql.ts",
     "test": "jest",
+    "test:supabase:scenario": "jest --runInBand tests/supabase.scenario.test.ts",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
@@ -61,6 +63,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
     "dotenv": "^17.0.1",
     "pg": "^8.11.0",
     "uuid": "^11.1.0"
