@@ -22,8 +22,13 @@ export interface EventFilter {
   readonly payloadPredicates?: Record<string, unknown>[]; // OR
 }
 
+export interface QueryOptions {
+  readonly minSequenceNumber?: number;
+}
+
 export interface EventQuery {
   readonly filters: EventFilter[]; // OR
+  readonly options?: QueryOptions;
 }
 
 export interface QueryResult {
