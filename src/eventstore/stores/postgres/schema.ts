@@ -19,8 +19,18 @@ export const CREATE_PAYLOAD_GIN_INDEX = `
   CREATE INDEX IF NOT EXISTS idx_events_payload_gin ON events USING gin(payload)
 `;
 
+function quoteIdentifier(identifier: string): string {
+  if (identifier.length === 0) {
+    throw new Error('eventstore-stores-postgres-err07: Database name must not be empty');
+  }
+  if (identifier.includes('\u0000')) {
+    throw new Error('eventstore-stores-postgres-err08: Database name must not contain null bytes');
+  }
+  return `"${identifier.replace(/"/g, '""')}"`;
+}
+
 export function createDatabaseQuery(dbName: string): string {
-  return `CREATE DATABASE ${dbName}`;
+  return `CREATE DATABASE ${quoteIdentifier(dbName)}`;
 }
 
 export function changeDatabaseInConnectionString(connStr: string, newDbName: string): string {

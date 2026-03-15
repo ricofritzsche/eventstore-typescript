@@ -1,4 +1,4 @@
-import { Event, EventStore, EventFilter, EventQuery, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription } from '../../types';
+import { Event, EventStore, EventFilter, EventQuery, QueryResult, EventStreamNotifier, HandleEvents, EventSubscription, EventRecord } from '../../types';
 import { MemoryEventStreamNotifier } from '../../notifiers';
 import { createQuery } from '../../filter';
 
@@ -12,6 +12,7 @@ export class MemoryEventStore implements EventStore {
   private notifier: EventStreamNotifier = new MemoryEventStreamNotifier();
   private lock: ReadWriteLockFIFO = new ReadWriteLockFIFO();
   private writeThruFilename: string | undefined;
+  private notificationQueue: Promise<void> = Promise.resolve();
 
   constructor(writeThruFilename?: string) {
     this.writeThruFilename = writeThruFilename;
@@ -59,6 +60,7 @@ export class MemoryEventStore implements EventStore {
   async append(events: Event[], filterCriteria: EventQuery, expectedMaxSequenceNumber: number): Promise<void>;
   async append(events: Event[], filterCriteria: EventFilter, expectedMaxSequenceNumber: number): Promise<void>;
   async append(events: Event[], queryOrFilter?: EventQuery | EventFilter,  expectedMaxSequenceNumber?: number): Promise<void> {
+    let eventRecords: EventRecord[] = [];
     await this.lock.acquireWrite();
     try {
         if (expectedMaxSequenceNumber !== undefined) {
@@ -73,23 +75,28 @@ export class MemoryEventStore implements EventStore {
             }
         }
 
-        const eventRecords = this.eventStream.append(events);
+        eventRecords = this.eventStream.append(events);
 
         if (this.writeThruFilename) {
             await this.storeToFile(this.writeThruFilename);
         }
-
-        await this.notifier.notify(eventRecords);
-            // TODO: or should this be moved after the lock release? would probably require queueing notifications to keep them in order
     }
     finally {
         this.lock.releaseWrite();
     }
+
+    await this.enqueueNotification(eventRecords);
   }
 
 
   async subscribe(handle: HandleEvents): Promise<EventSubscription> {
     return await this.notifier.subscribe(handle);
+  }
+
+  private enqueueNotification(events: EventRecord[]): Promise<void> {
+    const next = this.notificationQueue.then(() => this.notifier.notify(events));
+    this.notificationQueue = next.catch(() => undefined);
+    return next;
   }
 
 

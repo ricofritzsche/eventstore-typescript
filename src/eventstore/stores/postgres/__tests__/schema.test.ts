@@ -12,7 +12,12 @@ describe('Schema Functions', () => {
   describe('createDatabaseQuery', () => {
     it('should create database query string', () => {
       const result = createDatabaseQuery('testdb');
-      expect(result).toBe('CREATE DATABASE testdb');
+      expect(result).toBe('CREATE DATABASE "testdb"');
+    });
+
+    it('should escape double quotes in database name', () => {
+      const result = createDatabaseQuery('te"stdb');
+      expect(result).toBe('CREATE DATABASE "te""stdb"');
     });
   });
 

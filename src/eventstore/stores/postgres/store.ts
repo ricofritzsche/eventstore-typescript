@@ -39,12 +39,14 @@ export interface PostgresEventStoreOptions {
  */
 export class PostgresEventStore implements EventStore {
   private pool: Pool;
+  private readonly connectionString: string;
   private readonly databaseName: string;
   private readonly notifier: EventStreamNotifier;
 
   constructor(options: PostgresEventStoreOptions = {}) {
     const connectionString = options.connectionString || process.env.DATABASE_URL;
     if (!connectionString) throw new Error('eventstore-stores-postgres-err02: Connection string missing. DATABASE_URL environment variable not set.');
+    this.connectionString = connectionString;
 
     const databaseNameFromConnectionString = getDatabaseNameFromConnectionString(connectionString);
     if (!databaseNameFromConnectionString) throw new Error('eventstore-stores-postgres-err03: Database name not found. Invalid connection string: ' + connectionString);
@@ -140,7 +142,7 @@ export class PostgresEventStore implements EventStore {
 
   private async createDatabase(): Promise<void> {
     const adminConnectionString = changeDatabaseInConnectionString(
-      process.env.DATABASE_URL!,
+      this.connectionString,
       'postgres'
     );
 

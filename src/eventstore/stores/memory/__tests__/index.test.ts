@@ -3,6 +3,10 @@ import { EventRecord } from "../../../types";
 import { MemoryEventStore } from "../index";
 import * as fs from 'fs';
 
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 describe('MemoryEventStore', () => {
     let sut:MemoryEventStore;
 
@@ -135,21 +139,42 @@ describe('MemoryEventStore', () => {
 
 
     describe("EventStore Locking", () => {
-        it("should block query while append is running", async () => {
+        it("should not block query while notifications are running", async () => {
+            await sut.subscribe(async () => {
+                await sleep(50);
+            });
+
             const results: string[] = [];
 
-            // Start append operation
             const appendPromise = sut.append([{ eventType: 'test', payload: {} }])
                 .then(() => results.push('append-done'));
 
-            // Start query immediately after (should be blocked)
-            const queryPromise = sut.query()
+            await sleep(5);
+
+            await sut.query()
                 .then(() => results.push('query-done'));
 
-            await Promise.all([appendPromise, queryPromise]);
+            await appendPromise;
 
-            // Append should complete before query
-            expect(results).toEqual(['append-done', 'query-done']);
+            expect(results).toEqual(['query-done', 'append-done']);
+        });
+
+        it("should keep notification order across concurrent appends", async () => {
+            const notificationOrder: number[][] = [];
+
+            await sut.subscribe(async (events) => {
+                if (events[0]?.eventType === 'slow') {
+                    await sleep(40);
+                }
+                notificationOrder.push(events.map((event) => event.sequenceNumber));
+            });
+
+            const firstAppend = sut.append([{ eventType: 'slow', payload: {} }]);
+            const secondAppend = sut.append([{ eventType: 'fast', payload: {} }]);
+
+            await Promise.all([firstAppend, secondAppend]);
+
+            expect(notificationOrder).toEqual([[1], [2]]);
         });
     }); 
 

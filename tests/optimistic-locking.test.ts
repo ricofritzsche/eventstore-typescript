@@ -183,26 +183,27 @@ describe('Optimistic Locking CTE Condition', () => {
 
     await eventStore.append([
       new TestEvent(eventType, 'e1', {}),
-      new TestEvent(eventType, 'e2', {}),
     ], filter, 0);
 
     const fullContext = await eventStore.query(createQuery(createFilter([eventType])));
     const seqOfFirst = fullContext.events[0]!.sequenceNumber;
 
-    // Query with minSequenceNumber yields only the second event and its seqNr
+    // Query with minSequenceNumber equal to the current max yields no events and maxSequenceNumber 0,
+    // but optimistic locking must still consider the full context for the filter.
     const partial = await eventStore.query(
       createQuery({ minSequenceNumber: seqOfFirst }, createFilter([eventType]))
     );
-    expect(partial.events).toHaveLength(1);
+    expect(partial.events).toHaveLength(0);
+    expect(partial.maxSequenceNumber).toBe(0);
 
-    // Appending with the partial maxSequenceNumber fails — full context has 2 events
+    // Appending with the partial maxSequenceNumber fails — full context already has 1 event
     await expect(
-      eventStore.append([new TestEvent(eventType, 'e3', {})], createQuery(createFilter([eventType])), partial.maxSequenceNumber)
+      eventStore.append([new TestEvent(eventType, 'e2', {})], createQuery(createFilter([eventType])), partial.maxSequenceNumber)
     ).rejects.toThrow('eventstore-stores-postgres-err05');
 
     // Appending with the correct full-context sequence succeeds
     await expect(
-      eventStore.append([new TestEvent(eventType, 'e3', {})], createQuery(createFilter([eventType])), fullContext.maxSequenceNumber)
+      eventStore.append([new TestEvent(eventType, 'e2', {})], createQuery(createFilter([eventType])), fullContext.maxSequenceNumber)
     ).resolves.not.toThrow();
   });
 
