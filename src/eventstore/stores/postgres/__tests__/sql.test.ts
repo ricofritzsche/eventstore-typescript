@@ -5,7 +5,7 @@ describe('Sql builder', () => {
   describe('query', () => {
     it('No filters', () => {
       const result = buildContextQuerySql(createQuery(createFilter([],[])));
-      expect(result.sql).toBe('SELECT * FROM events  ORDER BY sequence_number ASC');
+      expect(result.sql).toBe('SELECT * FROM events ORDER BY sequence_number ASC');
       expect(result.params).toEqual([]);
     });
 
@@ -19,6 +19,24 @@ describe('Sql builder', () => {
       const result = buildContextQuerySql(createQuery(createFilter(["t1"],[{a:1}])));
       expect(result.sql).toBe('SELECT * FROM events WHERE ((event_type = ANY($1) AND (payload @> $2))) ORDER BY sequence_number ASC');
       expect(result.params).toEqual([["t1"], "{\"a\":1}"]);
+    });
+
+    it('minSequenceNumber only', () => {
+      const result = buildContextQuerySql(createQuery({ minSequenceNumber: 5 }));
+      expect(result.sql).toBe('SELECT * FROM events WHERE sequence_number > $1 ORDER BY sequence_number ASC');
+      expect(result.params).toEqual([5]);
+    });
+
+    it('event type with minSequenceNumber', () => {
+      const result = buildContextQuerySql(createQuery({ minSequenceNumber: 10 }, createFilter(["t1"],[])));
+      expect(result.sql).toBe('SELECT * FROM events WHERE sequence_number > $1 AND ((event_type = ANY($2))) ORDER BY sequence_number ASC');
+      expect(result.params).toEqual([10, ["t1"]]);
+    });
+
+    it('event type with payload and minSequenceNumber', () => {
+      const result = buildContextQuerySql(createQuery({ minSequenceNumber: 3 }, createFilter(["t1"],[{a:1}])));
+      expect(result.sql).toBe('SELECT * FROM events WHERE sequence_number > $1 AND ((event_type = ANY($2) AND (payload @> $3))) ORDER BY sequence_number ASC');
+      expect(result.params).toEqual([3, ["t1"], "{\"a\":1}"]);
     });
   });
 

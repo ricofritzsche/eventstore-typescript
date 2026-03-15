@@ -1,7 +1,7 @@
 import { EventFilter, EventQuery } from '../../types';
 
 
-export function compileContextQueryConditions(query: EventQuery): { sql: string; params: unknown[] } {
+export function compileContextQueryConditions(query: EventQuery, paramsBaseIndex: number = 0): { sql: string; params: unknown[] } {
   let sql = '';
   const params: unknown[] = [];
 
@@ -11,14 +11,14 @@ export function compileContextQueryConditions(query: EventQuery): { sql: string;
         sql += ' OR ';
       }
 
-      const filterClause = compileContextQueryConditionsFilter(filter, params.length);
+      const filterClause = compileContextQueryConditionsFilter(filter, paramsBaseIndex + params.length);
       if (filterClause.sql.length > 0)
         sql += `(${filterClause.sql})`;
 
       params.push(...filterClause.params);
     }
   }
-  
+
   return { sql, params };
 }
 
@@ -50,16 +50,28 @@ function compileContextQueryConditionsFilter(filter: EventFilter, paramsBaseInde
 
 
 export function buildContextQuerySql(query: EventQuery): { sql: string; params: unknown[] } {
-  const conditions = compileContextQueryConditions(query);
+  const params: unknown[] = [];
+  let whereClause = '';
 
-  let sql = 'SELECT * FROM events ';
-  if (conditions.sql.length > 0) sql += `WHERE ${conditions.sql}`;
+  if (query.options?.minSequenceNumber !== undefined) {
+    params.push(query.options.minSequenceNumber);
+    whereClause = `sequence_number > $${params.length}`;
+  }
+
+  const conditions = compileContextQueryConditions(query, params.length);
+  params.push(...conditions.params);
+
+  if (conditions.sql.length > 0) {
+    whereClause = whereClause.length > 0
+      ? `${whereClause} AND ${conditions.sql}`
+      : conditions.sql;
+  }
+
+  let sql = 'SELECT * FROM events';
+  if (whereClause.length > 0) sql += ` WHERE ${whereClause}`;
   sql += ' ORDER BY sequence_number ASC';
 
-  return {
-    sql,
-    params: conditions.params
-  };
+  return { sql, params };
 }
 
 

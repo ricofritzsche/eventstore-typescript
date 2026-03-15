@@ -206,6 +206,14 @@ const specificUserQuery = createQuery(
   createFilter(['UserEmailVerified'], [{ userId: '123' }])
 );
 const specificResult = await eventStore.query(specificUserQuery);
+
+// Example: Query only events after a known sequence number (incremental loading)
+const incrementalQuery = createQuery(
+  { minSequenceNumber: 42 },          // only events with sequenceNumber > 42
+  createFilter(['UserRegistered', 'UserEmailVerified'])
+);
+const incrementalResult = await eventStore.query(incrementalQuery);
+// incrementalResult.maxSequenceNumber can be stored and used as minSequenceNumber next time
 ```
 
 ### 3. Atomic Consistency with Optimistic Locking

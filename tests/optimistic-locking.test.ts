@@ -155,6 +155,59 @@ describe('Optimistic Locking CTE Condition', () => {
   });
 
 
+  it('should query only events after minSequenceNumber', async () => {
+    const eventType = `TestEvent_${Date.now()}_minseq1`;
+    const filter = createFilter([eventType]);
+
+    await eventStore.append([
+      new TestEvent(eventType, 'e1', {}),
+      new TestEvent(eventType, 'e2', {}),
+      new TestEvent(eventType, 'e3', {}),
+    ], filter, 0);
+
+    const all = await eventStore.query(filter);
+    expect(all.events).toHaveLength(3);
+    const seqOfFirst = all.events[0]!.sequenceNumber;
+
+    const partial = await eventStore.query(createQuery({ minSequenceNumber: seqOfFirst }, createFilter([eventType])));
+    expect(partial.events).toHaveLength(2);
+    expect((partial.events[0]!.payload as any).id).toBe('e2');
+    expect((partial.events[1]!.payload as any).id).toBe('e3');
+    expect(partial.maxSequenceNumber).toBe(all.events[2]!.sequenceNumber);
+  });
+
+
+  it('minSequenceNumber does not affect optimistic locking context', async () => {
+    const eventType = `TestEvent_${Date.now()}_minseq2`;
+    const filter = createFilter([eventType]);
+
+    await eventStore.append([
+      new TestEvent(eventType, 'e1', {}),
+    ], filter, 0);
+
+    const fullContext = await eventStore.query(createQuery(createFilter([eventType])));
+    const seqOfFirst = fullContext.events[0]!.sequenceNumber;
+
+    // Query with minSequenceNumber equal to the current max yields no events and maxSequenceNumber 0,
+    // but optimistic locking must still consider the full context for the filter.
+    const partial = await eventStore.query(
+      createQuery({ minSequenceNumber: seqOfFirst }, createFilter([eventType]))
+    );
+    expect(partial.events).toHaveLength(0);
+    expect(partial.maxSequenceNumber).toBe(0);
+
+    // Appending with the partial maxSequenceNumber fails — full context already has 1 event
+    await expect(
+      eventStore.append([new TestEvent(eventType, 'e2', {})], createQuery(createFilter([eventType])), partial.maxSequenceNumber)
+    ).rejects.toThrow('eventstore-stores-postgres-err05');
+
+    // Appending with the correct full-context sequence succeeds
+    await expect(
+      eventStore.append([new TestEvent(eventType, 'e2', {})], createQuery(createFilter([eventType])), fullContext.maxSequenceNumber)
+    ).resolves.not.toThrow();
+  });
+
+
   it('should work with multiple payload predicate options (OR conditions)', async () => {
     const eventType = `TestEvent_${Date.now()}_5`;
     const filter = createQuery(createFilter([eventType], [
