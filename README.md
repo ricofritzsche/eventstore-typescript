@@ -15,6 +15,10 @@ npm install @ricofritzsche/eventstore
 
 **NPM Package:** https://www.npmjs.com/package/@ricofritzsche/eventstore
 
+## Additional Store Docs
+
+- Supabase support: [SupabaseEventStore guide](src/eventstore/stores/supabase/README.md)
+
 ## High-Level Architecture
 
 The system is built around a core EventStore with pluggable notification system.
@@ -42,6 +46,7 @@ The system is built around a core EventStore with pluggable notification system.
 - **`types.ts`** - Core interfaces (Event, EventStore, EventQuery, EventStreamNotifier)
 - **`stores/postgres/`** - PostgreSQL implementation of EventStore with subscription support
 - **`stores/memory/`** - In-memory implementation of EventStore with subscription support
+- **`stores/supabase/`** - Supabase implementation for browser/SPA and tenant-scoped usage
 - **`notifiers/memory/`** - In-memory notification system (default)
 - **`filter/`** - Event filters and queries
 
